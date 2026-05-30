@@ -157,6 +157,34 @@ func (s *FileStore) List(ctx context.Context) ([]Metadata, error) {
 	return out, nil
 }
 
+func (s *FileStore) Resolve(ctx context.Context, ref string) (Metadata, error) {
+	if err := ctx.Err(); err != nil {
+		return Metadata{}, err
+	}
+
+	if validateSessionID(ref) == nil {
+		if _, err := os.Stat(s.metadataPath(ref)); err == nil {
+			return s.ReadMetadata(ctx, ref)
+		}
+	}
+
+	list, err := s.List(ctx)
+	if err != nil {
+		return Metadata{}, err
+	}
+	for _, m := range list {
+		if m.Name == ref {
+			return m, nil
+		}
+	}
+
+	return Metadata{}, fmt.Errorf("session not found: %q", ref)
+}
+
+func (s *FileStore) SessionDir(sessionID string) string {
+	return s.sessionPath(sessionID)
+}
+
 func (s *FileStore) sessionPath(sessionID string) string {
 	return filepath.Join(s.root, sessionID)
 }
