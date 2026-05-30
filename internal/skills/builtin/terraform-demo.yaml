@@ -1,0 +1,6 @@
+name: terraform-demo
+description: Record a basic Terraform workflow demo
+steps:
+  - run: terraform version
+  - run: terraform fmt -check
+  - run: terraform validate

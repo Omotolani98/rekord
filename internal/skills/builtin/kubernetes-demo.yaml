@@ -1,0 +1,6 @@
+name: kubernetes-demo
+description: Record a basic Kubernetes cluster demo
+steps:
+  - run: kubectl version --client
+  - run: kubectl get nodes
+  - run: kubectl get pods --all-namespaces
