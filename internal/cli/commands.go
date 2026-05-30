@@ -4,35 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newReplayCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "replay <session>",
-		Short: "Replay a recorded session",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("replay")
-		},
-	}
-}
-
-func newExportCommand() *cobra.Command {
-	var format, output string
-
-	cmd := &cobra.Command{
-		Use:   "export <session>",
-		Short: "Export a recorded session",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("export")
-		},
-	}
-
-	cmd.Flags().StringVar(&format, "to", "markdown", "export format: markdown, cast, json, script, mp4, or gif")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path")
-
-	return cmd
-}
-
 func newScanCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scan <session>",
