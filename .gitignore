@@ -1,0 +1,16 @@
+.DS_Store
+
+# Go build output
+/rekord
+*.test
+coverage.out
+
+# Local Rekord recordings and private config
+.rekord/
+rekord.yaml
+
+# Editor and local environment files
+.idea/
+.vscode/
+.env
+.env.*
