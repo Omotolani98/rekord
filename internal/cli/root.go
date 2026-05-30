@@ -55,6 +55,7 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newListCommand(),
 		newReplayCommand(),
 		newExportCommand(),
+		newCommandsCommand(),
 		newScanCommand(),
 		newHandoffCommand(),
 		newTmuxCommand(),
