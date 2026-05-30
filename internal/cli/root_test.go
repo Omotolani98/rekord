@@ -73,12 +73,12 @@ func TestExecuteCommandHelp(t *testing.T) {
 func TestExecutePlaceholderCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	code := Execute([]string{"handoff", "some-session"}, &stdout, &stderr)
+	code := Execute([]string{"skills", "list"}, &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("Execute returned %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "rekord handoff is not implemented yet") {
+	if !strings.Contains(stderr.String(), "rekord skills list is not implemented yet") {
 		t.Fatalf("stderr missing not implemented message:\n%s", stderr.String())
 	}
 }
