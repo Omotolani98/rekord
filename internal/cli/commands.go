@@ -4,26 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newStartCommand() *cobra.Command {
-	var name, timer, shell, cwd string
-
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Record an interactive terminal session",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("start")
-		},
-	}
-
-	cmd.Flags().StringVar(&name, "name", "", "recording name")
-	cmd.Flags().StringVar(&timer, "timer", "", "optional recording duration, for example 40s or 5m")
-	cmd.Flags().StringVar(&shell, "shell", "", "shell to record")
-	cmd.Flags().StringVar(&cwd, "cwd", "", "working directory for the recorded shell")
-
-	return cmd
-}
-
 func newRunCommand() *cobra.Command {
 	var name string
 
