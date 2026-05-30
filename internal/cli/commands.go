@@ -4,25 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newHandoffCommand() *cobra.Command {
-	var includeGit, includeTree, includeLogs bool
-
-	cmd := &cobra.Command{
-		Use:   "handoff <session>",
-		Short: "Generate AI-ready context from a session",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("handoff")
-		},
-	}
-
-	cmd.Flags().BoolVar(&includeGit, "include-git", false, "include git status and diff context")
-	cmd.Flags().BoolVar(&includeTree, "include-tree", false, "include a repository tree snapshot")
-	cmd.Flags().BoolVar(&includeLogs, "include-logs", false, "include captured session logs")
-
-	return cmd
-}
-
 func newTmuxCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tmux",
