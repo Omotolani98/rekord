@@ -118,6 +118,93 @@ func TestFileStoreWritesRestrictivePerms(t *testing.T) {
 	}
 }
 
+func TestFileStoreListReturnsSortedByCreatedAtDesc(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	base := time.Date(2026, 5, 30, 8, 0, 0, 0, time.UTC)
+
+	ids := []string{"alpha", "bravo", "charlie"}
+	for i, id := range ids {
+		m := testMetadata()
+		m.ID = id
+		m.Name = id
+		m.CreatedAt = base.Add(time.Duration(i) * time.Minute)
+		if err := store.Create(context.Background(), m); err != nil {
+			t.Fatalf("Create %s: %v", id, err)
+		}
+	}
+
+	got, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("count = %d, want 3", len(got))
+	}
+	wantOrder := []string{"charlie", "bravo", "alpha"}
+	for i, id := range wantOrder {
+		if got[i].ID != id {
+			t.Fatalf("order[%d] = %q, want %q", i, got[i].ID, id)
+		}
+	}
+}
+
+func TestFileStoreListEmptyRoot(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	got, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("len = %d, want 0", len(got))
+	}
+}
+
+func TestFileStoreListMissingRoot(t *testing.T) {
+	store := NewFileStore(filepath.Join(t.TempDir(), "does-not-exist"))
+	got, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("len = %d, want 0", len(got))
+	}
+}
+
+func TestFileStoreListSkipsInvalidEntries(t *testing.T) {
+	root := t.TempDir()
+	store := NewFileStore(root)
+
+	if err := store.Create(context.Background(), testMetadata()); err != nil {
+		t.Fatalf("Create valid: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "stray-file"), []byte("noise"), 0o600); err != nil {
+		t.Fatalf("stray file: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "empty-dir"), 0o700); err != nil {
+		t.Fatalf("empty dir: %v", err)
+	}
+
+	got, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1", len(got))
+	}
+	if got[0].ID != testMetadata().ID {
+		t.Fatalf("ID = %q, want %q", got[0].ID, testMetadata().ID)
+	}
+}
+
+func TestFileStoreListRespectsCanceledContext(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := store.List(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("List error = %v, want context.Canceled", err)
+	}
+}
+
 func TestFileStoreRespectsCanceledContext(t *testing.T) {
 	store := NewFileStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())

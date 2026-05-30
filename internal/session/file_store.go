@@ -3,9 +3,12 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -107,6 +110,51 @@ func (s *FileStore) WriteMetadata(ctx context.Context, metadata Metadata) error 
 	}
 
 	return nil
+}
+
+func (s *FileStore) List(ctx context.Context) ([]Metadata, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(s.root)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read sessions root: %w", err)
+	}
+
+	out := make([]Metadata, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if err := validateSessionID(name); err != nil {
+			continue
+		}
+		m, err := s.ReadMetadata(ctx, name)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			continue
+		}
+		out = append(out, m)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+
+	return out, nil
 }
 
 func (s *FileStore) sessionPath(sessionID string) string {

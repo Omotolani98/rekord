@@ -41,17 +41,6 @@ func newRunCommand() *cobra.Command {
 	return cmd
 }
 
-func newListCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list",
-		Short: "List recorded sessions",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("list")
-		},
-	}
-}
-
 func newReplayCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "replay <session>",
