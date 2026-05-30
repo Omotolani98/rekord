@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -18,11 +19,21 @@ func Execute(args []string, stdout, stderr io.Writer) int {
 	cmd.SetArgs(args)
 
 	if err := cmd.Execute(); err != nil {
+		var ece *exitCodeError
+		if errors.As(err, &ece) {
+			return ece.code
+		}
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
 
 	return 0
+}
+
+type exitCodeError struct{ code int }
+
+func (e *exitCodeError) Error() string {
+	return fmt.Sprintf("command exited with status %d", e.code)
 }
 
 // NewRootCommand builds the Rekord command tree.

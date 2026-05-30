@@ -44,7 +44,10 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	}
 
 	shell := resolveShell(opts.Shell)
-	result := Result{Shell: shell, ExitCode: exitCodeUnknown}
+	result := Result{ExitCode: exitCodeUnknown}
+	if len(opts.Command) == 0 {
+		result.Shell = shell
+	}
 
 	writer, err := events.NewWriter(opts.EventsPath)
 	if err != nil {
@@ -52,7 +55,12 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	}
 	defer func() { _ = writer.Close() }()
 
-	cmd := exec.Command(shell)
+	var cmd *exec.Cmd
+	if len(opts.Command) > 0 {
+		cmd = exec.Command(opts.Command[0], opts.Command[1:]...)
+	} else {
+		cmd = exec.Command(shell)
+	}
 	if opts.CWD != "" {
 		cmd.Dir = opts.CWD
 	}
