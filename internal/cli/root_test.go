@@ -86,12 +86,12 @@ func TestExecutePlaceholderCommand(t *testing.T) {
 func TestExecuteNestedPlaceholderCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	code := Execute([]string{"tmux", "start", "--session", "demo"}, &stdout, &stderr)
+	code := Execute([]string{"skills", "run", "demo"}, &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("Execute returned %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "rekord tmux start is not implemented yet") {
+	if !strings.Contains(stderr.String(), "rekord skills run is not implemented yet") {
 		t.Fatalf("stderr missing nested not implemented message:\n%s", stderr.String())
 	}
 }

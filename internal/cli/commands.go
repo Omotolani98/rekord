@@ -4,51 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTmuxCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "tmux",
-		Short: "Record or export tmux sessions",
-	}
-
-	cmd.AddCommand(newTmuxStartCommand(), newTmuxExportCommand())
-
-	return cmd
-}
-
-func newTmuxStartCommand() *cobra.Command {
-	var session string
-
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Record a tmux session",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented(commandPath("tmux", "start"))
-		},
-	}
-
-	cmd.Flags().StringVar(&session, "session", "", "tmux session name")
-
-	return cmd
-}
-
-func newTmuxExportCommand() *cobra.Command {
-	var format string
-
-	cmd := &cobra.Command{
-		Use:   "export <session>",
-		Short: "Export a recorded tmux session",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented(commandPath("tmux", "export"))
-		},
-	}
-
-	cmd.Flags().StringVar(&format, "to", "markdown", "export format")
-
-	return cmd
-}
-
 func newSkillsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
