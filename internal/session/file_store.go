@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-const metadataFileName = "metadata.json"
+const (
+	metadataFileName = "metadata.json"
+	sessionDirPerm   = 0o700
+	sessionFilePerm  = 0o600
+)
 
 type FileStore struct {
 	root string
@@ -22,12 +27,8 @@ func (s *FileStore) Create(ctx context.Context, metadata Metadata) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if metadata.ID == "" {
-		return fmt.Errorf("session id is required")
-	}
-
-	if err := os.MkdirAll(s.sessionPath(metadata.ID), 0o755); err != nil {
-		return fmt.Errorf("create session directory: %w", err)
+	if err := validateSessionID(metadata.ID); err != nil {
+		return err
 	}
 
 	return s.WriteMetadata(ctx, metadata)
@@ -37,8 +38,8 @@ func (s *FileStore) ReadMetadata(ctx context.Context, sessionID string) (Metadat
 	if err := ctx.Err(); err != nil {
 		return Metadata{}, err
 	}
-	if sessionID == "" {
-		return Metadata{}, fmt.Errorf("session id is required")
+	if err := validateSessionID(sessionID); err != nil {
+		return Metadata{}, err
 	}
 
 	data, err := os.ReadFile(s.metadataPath(sessionID))
@@ -58,8 +59,8 @@ func (s *FileStore) WriteMetadata(ctx context.Context, metadata Metadata) error 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if metadata.ID == "" {
-		return fmt.Errorf("session id is required")
+	if err := validateSessionID(metadata.ID); err != nil {
+		return err
 	}
 
 	data, err := json.MarshalIndent(metadata, "", "  ")
@@ -68,11 +69,41 @@ func (s *FileStore) WriteMetadata(ctx context.Context, metadata Metadata) error 
 	}
 	data = append(data, '\n')
 
-	if err := os.MkdirAll(s.sessionPath(metadata.ID), 0o755); err != nil {
+	dir := s.sessionPath(metadata.ID)
+	if err := os.MkdirAll(dir, sessionDirPerm); err != nil {
 		return fmt.Errorf("create session directory: %w", err)
 	}
-	if err := os.WriteFile(s.metadataPath(metadata.ID), data, 0o644); err != nil {
+
+	final := s.metadataPath(metadata.ID)
+	tmp, err := os.CreateTemp(dir, metadataFileName+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temp metadata: %w", err)
+	}
+	tmpName := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpName) }
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		cleanup()
 		return fmt.Errorf("write metadata: %w", err)
+	}
+	if err := tmp.Chmod(sessionFilePerm); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("chmod metadata: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("sync metadata: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("close metadata: %w", err)
+	}
+	if err := os.Rename(tmpName, final); err != nil {
+		cleanup()
+		return fmt.Errorf("rename metadata: %w", err)
 	}
 
 	return nil
@@ -84,4 +115,17 @@ func (s *FileStore) sessionPath(sessionID string) string {
 
 func (s *FileStore) metadataPath(sessionID string) string {
 	return filepath.Join(s.sessionPath(sessionID), metadataFileName)
+}
+
+func validateSessionID(sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("session id is required")
+	}
+	if strings.ContainsAny(sessionID, `/\`) || strings.Contains(sessionID, "..") {
+		return fmt.Errorf("invalid session id %q", sessionID)
+	}
+	if sessionID != filepath.Clean(sessionID) {
+		return fmt.Errorf("invalid session id %q", sessionID)
+	}
+	return nil
 }

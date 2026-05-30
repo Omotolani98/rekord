@@ -79,6 +79,45 @@ func TestFileStoreRequiresSessionID(t *testing.T) {
 	}
 }
 
+func TestFileStoreRejectsPathTraversalID(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	for _, id := range []string{"../escape", "foo/bar", `foo\bar`, "..", "./foo"} {
+		metadata := testMetadata()
+		metadata.ID = id
+		if err := store.Create(context.Background(), metadata); err == nil {
+			t.Fatalf("Create accepted unsafe id %q", id)
+		}
+		if _, err := store.ReadMetadata(context.Background(), id); err == nil {
+			t.Fatalf("ReadMetadata accepted unsafe id %q", id)
+		}
+	}
+}
+
+func TestFileStoreWritesRestrictivePerms(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	metadata := testMetadata()
+
+	if err := store.Create(context.Background(), metadata); err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	dirInfo, err := os.Stat(filepath.Join(store.root, metadata.ID))
+	if err != nil {
+		t.Fatalf("stat session dir: %v", err)
+	}
+	if perm := dirInfo.Mode().Perm(); perm != 0o700 {
+		t.Fatalf("session dir perm = %o, want 0700", perm)
+	}
+
+	fileInfo, err := os.Stat(filepath.Join(store.root, metadata.ID, metadataFileName))
+	if err != nil {
+		t.Fatalf("stat metadata file: %v", err)
+	}
+	if perm := fileInfo.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("metadata file perm = %o, want 0600", perm)
+	}
+}
+
 func TestFileStoreRespectsCanceledContext(t *testing.T) {
 	store := NewFileStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
