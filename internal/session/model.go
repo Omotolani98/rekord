@@ -17,6 +17,7 @@ type Metadata struct {
 	EndedAt       *time.Time `json:"endedAt,omitempty"`
 	DurationMS    int64      `json:"durationMs"`
 	Shell         string     `json:"shell"`
+	Command       []string   `json:"command,omitempty"`
 	CWD           string     `json:"cwd"`
 	Cols          int        `json:"cols"`
 	Rows          int        `json:"rows"`

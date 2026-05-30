@@ -11,6 +11,7 @@ const defaultShell = "/bin/sh"
 
 type Options struct {
 	Shell      string
+	Command    []string
 	CWD        string
 	Env        []string
 	EventsPath string

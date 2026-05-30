@@ -4,23 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRunCommand() *cobra.Command {
-	var name string
-
-	cmd := &cobra.Command{
-		Use:   "run --name <name> -- <command> [args...]",
-		Short: "Record a single command",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("run")
-		},
-	}
-
-	cmd.Flags().StringVar(&name, "name", "", "recording name")
-
-	return cmd
-}
-
 func newReplayCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "replay <session>",
