@@ -22,6 +22,24 @@ func TestLoadPromptPatterns(t *testing.T) {
 	}
 }
 
+func TestLoadPrivacy(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rekord.yaml")
+	body := "privacy:\n  redact: true\n  redactPatterns:\n    - \"mytoken-[0-9]+\"\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Privacy.Redact {
+		t.Fatal("Privacy.Redact = false, want true")
+	}
+	if len(cfg.Privacy.RedactPatterns) != 1 || cfg.Privacy.RedactPatterns[0] != "mytoken-[0-9]+" {
+		t.Fatalf("RedactPatterns = %v", cfg.Privacy.RedactPatterns)
+	}
+}
+
 func TestLoadMissingFileDefaults(t *testing.T) {
 	cfg, err := Load(filepath.Join(t.TempDir(), "nope.yaml"))
 	if err != nil {

@@ -4,17 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newScanCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "scan <session>",
-		Short: "Scan a session for sensitive data",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return notImplemented("scan")
-		},
-	}
-}
-
 func newHandoffCommand() *cobra.Command {
 	var includeGit, includeTree, includeLogs bool
 
