@@ -10,7 +10,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 Homebrew (available after the first tagged release):
 
 ```bash
-brew install Omotolani98/tap/rekord
+brew install Omotolani98/rekord/rekord
 ```
 
 With Go:
@@ -79,4 +79,5 @@ goreleaser release --snapshot --clean
 ```
 
 Tag with a semantic version such as `v0.1.0`. Homebrew formulas are published to
-`Omotolani98/homebrew-tap`.
+`Omotolani98/homebrew-rekord` (requires a `REKORD_TOKEN` secret — a PAT with push
+access to the tap repo, since the default `GITHUB_TOKEN` cannot write to other repos).
