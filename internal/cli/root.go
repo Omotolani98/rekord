@@ -10,6 +10,8 @@ import (
 
 var version = "0.1.0-dev"
 
+func Version() string { return version }
+
 // Execute runs the CLI and returns a process exit code.
 func Execute(args []string, stdout, stderr io.Writer) int {
 	cmd := NewRootCommand(stdout, stderr)
