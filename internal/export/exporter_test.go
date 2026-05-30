@@ -2,13 +2,24 @@ package export
 
 import "testing"
 
-func TestGetCast(t *testing.T) {
-	exp, err := Get("cast")
-	if err != nil {
-		t.Fatalf("Get(cast): %v", err)
+func TestGetFormats(t *testing.T) {
+	cases := []struct{ format, ext string }{
+		{"cast", "cast"},
+		{"json", "json"},
+		{"markdown", "md"},
+		{"script", "sh"},
 	}
-	if exp.Format() != "cast" {
-		t.Fatalf("Format = %q, want cast", exp.Format())
+	for _, c := range cases {
+		exp, err := Get(c.format)
+		if err != nil {
+			t.Fatalf("Get(%s): %v", c.format, err)
+		}
+		if exp.Format() != c.format {
+			t.Fatalf("Format = %q, want %q", exp.Format(), c.format)
+		}
+		if exp.Ext() != c.ext {
+			t.Fatalf("Ext = %q, want %q", exp.Ext(), c.ext)
+		}
 	}
 }
 
