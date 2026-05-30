@@ -1,0 +1,57 @@
+version: 2
+
+project_name: rekord
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: rekord
+    main: ./cmd/rekord
+    binary: rekord
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/Omotolani98/rekord/internal/cli.version={{ .Version }}
+
+archives:
+  - id: rekord
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: Omotolani98
+    name: rekord

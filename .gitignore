@@ -4,6 +4,7 @@
 /rekord
 *.test
 coverage.out
+dist/
 
 # Local Rekord recordings and private config
 .rekord/

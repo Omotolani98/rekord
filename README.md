@@ -13,3 +13,14 @@ go run ./cmd/rekord version
 ```
 
 Generated recordings should stay local under `.rekord/` and must not be committed.
+
+## Releases
+
+Releases are built with GoReleaser:
+
+```bash
+goreleaser check
+goreleaser release --snapshot --clean
+```
+
+Tag releases with semantic versions such as `v0.1.0`, then run GoReleaser from `main`.

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.0-dev"
+var version = "0.1.0-dev"
 
 // Execute runs the CLI and returns a process exit code.
 func Execute(args []string, stdout, stderr io.Writer) int {
