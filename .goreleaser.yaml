@@ -55,3 +55,15 @@ release:
   github:
     owner: Omotolani98
     name: rekord
+
+brews:
+  - name: rekord
+    repository:
+      owner: Omotolani98
+      name: homebrew-tap
+    homepage: "https://github.com/Omotolani98/rekord"
+    description: "Record terminal workflows as structured session data"
+    install: |
+      bin.install "rekord"
+    test: |
+      system "#{bin}/rekord", "version"
