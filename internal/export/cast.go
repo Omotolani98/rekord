@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Omotolani98/rekord/internal/commands"
 	"github.com/Omotolani98/rekord/internal/events"
 	"github.com/Omotolani98/rekord/internal/session"
 )
@@ -21,6 +22,7 @@ const (
 type CastExporter struct{}
 
 func (CastExporter) Format() string { return "cast" }
+func (CastExporter) Ext() string    { return "cast" }
 
 type castHeader struct {
 	Version   int               `json:"version"`
@@ -30,7 +32,7 @@ type castHeader struct {
 	Env       map[string]string `json:"env"`
 }
 
-func (CastExporter) Export(ctx context.Context, m session.Metadata, evs []events.Event, outPath string) error {
+func (CastExporter) Export(ctx context.Context, m session.Metadata, evs []events.Event, _ []commands.Command, outPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), castExportDirPerm); err != nil {
 		return fmt.Errorf("create export directory: %w", err)
 	}

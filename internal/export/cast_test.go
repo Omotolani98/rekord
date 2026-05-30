@@ -29,7 +29,7 @@ func TestCastExporterWritesHeaderAndRows(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "exports", "demo.cast")
-	if err := (CastExporter{}).Export(context.Background(), m, evs, out); err != nil {
+	if err := (CastExporter{}).Export(context.Background(), m, evs, nil, out); err != nil {
 		t.Fatalf("Export: %v", err)
 	}
 

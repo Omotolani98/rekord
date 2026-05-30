@@ -66,6 +66,35 @@ func TestExportCommandWritesCast(t *testing.T) {
 	}
 }
 
+func TestExportCommandDocFormats(t *testing.T) {
+	root := t.TempDir()
+	m := seedSession(t, root, "demo", []events.Event{
+		{TimeMS: 0, Type: events.TypeOutput, Data: "$ echo hi\r\n"},
+		{TimeMS: 5, Type: events.TypeOutput, Data: "hi\r\n"},
+	})
+	store := session.NewFileStore(root)
+
+	for _, tc := range []struct{ format, ext string }{
+		{"json", "json"},
+		{"markdown", "md"},
+		{"script", "sh"},
+	} {
+		var stdout, stderr bytes.Buffer
+		code := Execute([]string{"export", "demo", "--root", root, "--to", tc.format}, &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("%s: exit code = %d; stderr=%s", tc.format, code, stderr.String())
+		}
+		path := filepath.Join(store.SessionDir(m.ID), "exports", "demo."+tc.ext)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("%s: stat %s: %v", tc.format, path, err)
+		}
+		if info.Size() == 0 {
+			t.Fatalf("%s: file empty", tc.format)
+		}
+	}
+}
+
 func TestExportCommandUnknownFormat(t *testing.T) {
 	root := t.TempDir()
 	seedSession(t, root, "demo", []events.Event{

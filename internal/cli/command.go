@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/Omotolani98/rekord/internal/commands"
-	"github.com/Omotolani98/rekord/internal/config"
 	"github.com/Omotolani98/rekord/internal/events"
 	"github.com/Omotolani98/rekord/internal/session"
 	"github.com/spf13/cobra"
@@ -36,20 +35,6 @@ func newCommandsCommand() *cobra.Command {
 }
 
 func runCommands(cmd *cobra.Command, ref, root, cfgPath string, asJSON bool) error {
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		return err
-	}
-
-	patterns := cfg.Commands.PromptPatterns
-	if len(patterns) == 0 {
-		patterns = commands.DefaultPatterns()
-	}
-	compiled, err := commands.CompilePatterns(patterns)
-	if err != nil {
-		return err
-	}
-
 	ctx := cmd.Context()
 	store := session.NewFileStore(root)
 	m, err := store.Resolve(ctx, ref)
@@ -62,7 +47,10 @@ func runCommands(cmd *cobra.Command, ref, root, cfgPath string, asJSON bool) err
 		return fmt.Errorf("read events: %w", err)
 	}
 
-	extracted := commands.NewExtractor(compiled).Extract(evs)
+	extracted, err := extractCommands(cfgPath, evs)
+	if err != nil {
+		return err
+	}
 	if extracted == nil {
 		extracted = []commands.Command{}
 	}
