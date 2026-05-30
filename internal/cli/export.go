@@ -15,7 +15,7 @@ import (
 )
 
 func newExportCommand() *cobra.Command {
-	var format, output, root, cfgPath string
+	var format, output, root, cfgPath, size string
 	var doRedact, noRedact bool
 
 	cmd := &cobra.Command{
@@ -23,22 +23,23 @@ func newExportCommand() *cobra.Command {
 		Short: "Export a recorded session",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runExport(cmd, args[0], format, output, root, cfgPath, doRedact, noRedact)
+			return runExport(cmd, args[0], format, output, root, cfgPath, size, doRedact, noRedact)
 		},
 	}
 
-	cmd.Flags().StringVar(&format, "to", "cast", "export format: cast, json, markdown, script")
+	cmd.Flags().StringVar(&format, "to", "cast", "export format: cast, json, markdown, script, gif, mp4")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path")
 	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
 	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with prompt and redaction patterns")
+	cmd.Flags().StringVar(&size, "size", "720p", "mp4 size preset: 720p or 1080p")
 	cmd.Flags().BoolVar(&doRedact, "redact", false, "redact secrets in the export")
 	cmd.Flags().BoolVar(&noRedact, "no-redact", false, "disable redaction even if enabled in config")
 
 	return cmd
 }
 
-func runExport(cmd *cobra.Command, ref, format, output, root, cfgPath string, doRedact, noRedact bool) error {
-	exp, err := export.Get(format)
+func runExport(cmd *cobra.Command, ref, format, output, root, cfgPath, size string, doRedact, noRedact bool) error {
+	exp, err := export.Get(format, size)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,6 +129,34 @@ func TestExportCommandRedact(t *testing.T) {
 	}
 	if !bytes.Contains(raw, []byte(secret)) {
 		t.Fatal("raw events.jsonl was modified; should retain secret")
+	}
+}
+
+func TestExportCommandGif(t *testing.T) {
+	root := t.TempDir()
+	m := seedSession(t, root, "demo", []events.Event{
+		{TimeMS: 0, Type: events.TypeOutput, Data: "hi\r\n"},
+	})
+	store := session.NewFileStore(root)
+
+	var stdout, stderr bytes.Buffer
+	code := Execute([]string{"export", "demo", "--root", root, "--to", "gif"}, &stdout, &stderr)
+
+	if _, err := exec.LookPath("agg"); err != nil {
+		if code == 0 {
+			t.Fatal("exit code = 0, want non-zero when agg missing")
+		}
+		if !strings.Contains(stderr.String(), "agg") {
+			t.Fatalf("error should mention agg:\n%s", stderr.String())
+		}
+		return
+	}
+
+	if code != 0 {
+		t.Fatalf("exit code = %d; stderr=%s", code, stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(store.SessionDir(m.ID), "exports", "demo.gif")); err != nil {
+		t.Fatalf("gif not written: %v", err)
 	}
 }
 
