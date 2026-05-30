@@ -15,14 +15,14 @@ import (
 )
 
 func newStartCommand() *cobra.Command {
-	var name, shell, cwd, root string
+	var name, shell, cwd, root, timer string
 
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Record an interactive terminal session",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStart(cmd, name, shell, cwd, root)
+			return runStart(cmd, name, shell, cwd, root, timer)
 		},
 	}
 
@@ -30,16 +30,34 @@ func newStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&shell, "shell", "", "shell to record (default: $SHELL)")
 	cmd.Flags().StringVar(&cwd, "cwd", "", "working directory for the recorded shell")
 	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&timer, "timer", "", "auto-stop after duration (e.g. 40s, 5m)")
 
 	return cmd
 }
 
-func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root string) error {
+func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer string) error {
 	if err := session.ValidateName(name); err != nil {
 		return fmt.Errorf("--name is required: %w", err)
 	}
 
+	var timeout time.Duration
+	if timer != "" {
+		d, err := time.ParseDuration(timer)
+		if err != nil {
+			return fmt.Errorf("--timer invalid: %w", err)
+		}
+		if d <= 0 {
+			return errors.New("--timer must be positive")
+		}
+		timeout = d
+	}
+
 	ctx := cmd.Context()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	now := time.Now().UTC()
 	id := session.NewID(name, now)
 
@@ -97,7 +115,8 @@ func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root string)
 	if res.Shell != "" {
 		m.Shell = res.Shell
 	}
-	if recErr != nil {
+	cleanStop := errors.Is(recErr, context.Canceled) || errors.Is(recErr, context.DeadlineExceeded)
+	if recErr != nil && !cleanStop {
 		m.Status = session.StatusFailed
 	} else {
 		m.Status = session.StatusCompleted
@@ -110,7 +129,7 @@ func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root string)
 		return fmt.Errorf("update metadata: %w", err)
 	}
 
-	if errors.Is(recErr, context.Canceled) {
+	if cleanStop {
 		return nil
 	}
 	return recErr

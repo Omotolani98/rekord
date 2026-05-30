@@ -88,6 +88,67 @@ func TestStartCommandRecordsSession(t *testing.T) {
 	}
 }
 
+func TestStartCommandTimerStops(t *testing.T) {
+	if _, err := os.Stat("/bin/sh"); err != nil {
+		t.Skip("/bin/sh not available")
+	}
+
+	root := t.TempDir()
+	stdinR, stdinW := io.Pipe()
+	defer stdinW.Close()
+
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCommand(&stdout, &stderr)
+	cmd.SetIn(stdinR)
+	cmd.SetArgs([]string{"start", "--name", "demo", "--shell", "/bin/sh", "--root", root, "--timer", "300ms"})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		t.Fatalf("Execute: %v; stderr=%s", err, stderr.String())
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("session dir count = %d, want 1", len(entries))
+	}
+
+	store := session.NewFileStore(root)
+	m, err := store.ReadMetadata(context.Background(), entries[0].Name())
+	if err != nil {
+		t.Fatalf("ReadMetadata: %v", err)
+	}
+	if m.Status != session.StatusCompleted {
+		t.Fatalf("Status = %q, want %q", m.Status, session.StatusCompleted)
+	}
+	if m.EndedAt == nil {
+		t.Fatal("EndedAt nil, want set")
+	}
+}
+
+func TestStartCommandInvalidTimer(t *testing.T) {
+	root := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCommand(&stdout, &stderr)
+	cmd.SetArgs([]string{"start", "--name", "demo", "--root", root, "--timer", "bogus"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute err = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "timer") {
+		t.Fatalf("err = %v, want timer message", err)
+	}
+
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 0 {
+		t.Fatalf("created %d entries, want 0", len(entries))
+	}
+}
+
 func TestStartCommandRequiresName(t *testing.T) {
 	root := t.TempDir()
 	var stdout, stderr bytes.Buffer
