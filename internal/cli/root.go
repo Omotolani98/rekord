@@ -4,53 +4,57 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 var version = "0.1.0-dev"
 
 // Execute runs the CLI and returns a process exit code.
 func Execute(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		printHelp(stdout)
-		return 0
+	cmd := NewRootCommand(stdout, stderr)
+	cmd.SetArgs(args)
+
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 2
 	}
 
-	switch args[0] {
-	case "-h", "--help", "help":
-		printHelp(stdout)
-		return 0
-	case "version":
-		fmt.Fprintf(stdout, "rekord %s\n", version)
-		return 0
-	case "start", "run", "list", "replay", "export", "scan", "handoff", "tmux", "skills":
-		fmt.Fprintf(stderr, "rekord %s is not implemented yet\n", args[0])
-		return 2
-	default:
-		fmt.Fprintf(stderr, "unknown command %q\n\n", args[0])
-		printHelp(stderr)
-		return 2
-	}
+	return 0
 }
 
-func printHelp(w io.Writer) {
-	commands := []string{
-		"start     Record an interactive terminal session",
-		"run       Record a single command",
-		"list      List recorded sessions",
-		"replay    Replay a recorded session",
-		"export    Export a session",
-		"scan      Scan a session for sensitive data",
-		"handoff   Generate AI-ready context",
-		"tmux      Record or export tmux sessions",
-		"skills    Run reusable recording recipes",
-		"version   Print the Rekord version",
+// NewRootCommand builds the Rekord command tree.
+func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           "rekord",
+		Short:         "Record terminal workflows as structured session data",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	fmt.Fprintln(w, "rekord records terminal workflows as structured session data.")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  rekord <command> [flags]")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintf(w, "  %s\n", strings.Join(commands, "\n  "))
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+
+	cmd.AddCommand(
+		newVersionCommand(),
+		newStartCommand(),
+		newRunCommand(),
+		newListCommand(),
+		newReplayCommand(),
+		newExportCommand(),
+		newScanCommand(),
+		newHandoffCommand(),
+		newTmuxCommand(),
+		newSkillsCommand(),
+	)
+
+	return cmd
+}
+
+func notImplemented(command string) error {
+	return fmt.Errorf("rekord %s is not implemented yet", command)
+}
+
+func commandPath(parts ...string) string {
+	return strings.Join(parts, " ")
 }
