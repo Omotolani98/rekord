@@ -1,9 +1,27 @@
 # Rekord
 
+[![CI](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml/badge.svg)](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml)
+
 Rekord is a Go CLI that records terminal workflows as structured session data, then
 exports them to Markdown, JSON, asciinema casts, GIF/MP4, and AI-ready handoff bundles.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
+
+## Features
+
+- **Record** interactive shells in a PTY (raw mode, terminal resize, `--timer`
+  auto-stop) or a single command (`run`).
+- **tmux** support: pane capture, `pipe-pane` streaming, and a managed session that
+  records while you stay attached.
+- **Replay** sessions with original timing (`--speed`).
+- **Export** to `cast`, `json`, `markdown`, shell `script`, `gif`, and `mp4`.
+- **Command extraction** from recorded output, with configurable prompt patterns.
+- **Safety**: scan sessions for secrets and redact them on export — raw files are
+  never modified.
+- **AI handoff** bundles: session context plus optional git state, project tree, and
+  clipboard copy.
+- **Skills**: reusable YAML recording recipes, with built-in starters.
+- **`doctor`** checks for optional external tools.
 
 ## Install
 
@@ -21,6 +39,19 @@ go install github.com/Omotolani98/rekord/cmd/rekord@latest
 
 Or download a prebuilt archive for your platform from the
 [Releases](https://github.com/Omotolani98/rekord/releases) page.
+
+## Quickstart
+
+```bash
+rekord run --name demo -- go test ./...     # record a command
+rekord list                                 # list sessions
+rekord replay demo                          # replay with original timing
+rekord commands demo --json                 # commands extracted from output
+rekord export demo --to markdown            # generate docs
+rekord export demo --to cast                # asciinema cast (play with: asciinema play)
+rekord handoff demo --include-git --copy    # AI context bundle, copied to clipboard
+rekord scan demo --strict                   # fail if secrets are present
+```
 
 ## Usage
 
@@ -46,15 +77,38 @@ rekord
     run <skill>         # run a skill and record it
 ```
 
-Example:
+GIF/MP4 export needs `agg` (and `ffmpeg` for MP4); run `rekord doctor` to check what
+is installed.
 
-```bash
-rekord run --name tests -- go test ./...
-rekord export tests --to markdown
+## Configuration
+
+Optional `rekord.yaml` in the working directory tunes command extraction and
+redaction. Values are merged with the built-in defaults:
+
+```yaml
+commands:
+  promptPatterns:
+    - "^❯\\s+(.+)$"
+privacy:
+  redact: true
+  redactPatterns:
+    - "mytoken-[0-9]+"
 ```
 
-Configuration lives in `rekord.yaml` (prompt patterns, redaction). GIF/MP4 export
-needs `agg` (and `ffmpeg` for MP4); run `rekord doctor` to check.
+## Session storage
+
+Each recording is a self-contained directory under `.rekord/`:
+
+```text
+.rekord/sessions/<id>/
+  metadata.json     # session metadata
+  events.jsonl      # append-only event log (output/input/resize)
+  exports/          # generated cast/json/markdown/script/gif/mp4
+  handoff/          # context.md, git.diff, tree.txt, logs.txt
+```
+
+Recordings stay local under `.rekord/` and must not be committed; treat recorded
+output as sensitive (it may contain secrets).
 
 ## Development
 
@@ -65,9 +119,6 @@ make lint       # go vet + golangci-lint
 make fmt        # gofmt
 make run ARGS="--help"
 ```
-
-Generated recordings stay local under `.rekord/` and must not be committed; treat
-recorded output as sensitive (it may contain secrets).
 
 ## Releases
 
