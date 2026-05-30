@@ -11,10 +11,16 @@ import (
 
 type Config struct {
 	Commands CommandsConfig `yaml:"commands"`
+	Privacy  PrivacyConfig  `yaml:"privacy"`
 }
 
 type CommandsConfig struct {
 	PromptPatterns []string `yaml:"promptPatterns"`
+}
+
+type PrivacyConfig struct {
+	Redact         bool     `yaml:"redact"`
+	RedactPatterns []string `yaml:"redactPatterns"`
 }
 
 func Default() Config {

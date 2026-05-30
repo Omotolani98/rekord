@@ -95,6 +95,41 @@ func TestExportCommandDocFormats(t *testing.T) {
 	}
 }
 
+func TestExportCommandRedact(t *testing.T) {
+	root := t.TempDir()
+	secret := "sk-abcdef0123456789ABCDEF"
+	m := seedSession(t, root, "demo", []events.Event{
+		{TimeMS: 0, Type: events.TypeOutput, Data: "$ echo " + secret + "\r\n"},
+		{TimeMS: 5, Type: events.TypeOutput, Data: secret + "\r\n"},
+	})
+	store := session.NewFileStore(root)
+
+	var stdout, stderr bytes.Buffer
+	code := Execute([]string{"export", "demo", "--root", root, "--to", "json", "--redact"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d; stderr=%s", code, stderr.String())
+	}
+
+	data, err := os.ReadFile(filepath.Join(store.SessionDir(m.ID), "exports", "demo.json"))
+	if err != nil {
+		t.Fatalf("read export: %v", err)
+	}
+	if bytes.Contains(data, []byte(secret)) {
+		t.Fatalf("export leaked secret:\n%s", data)
+	}
+	if !bytes.Contains(data, []byte("[REDACTED]")) {
+		t.Fatalf("export missing redaction:\n%s", data)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(store.SessionDir(m.ID), "events.jsonl"))
+	if err != nil {
+		t.Fatalf("read raw events: %v", err)
+	}
+	if !bytes.Contains(raw, []byte(secret)) {
+		t.Fatal("raw events.jsonl was modified; should retain secret")
+	}
+}
+
 func TestExportCommandUnknownFormat(t *testing.T) {
 	root := t.TempDir()
 	seedSession(t, root, "demo", []events.Event{
