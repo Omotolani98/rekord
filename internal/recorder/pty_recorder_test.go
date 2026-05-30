@@ -7,13 +7,16 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/Omotolani98/rekord/internal/events"
+	"github.com/creack/pty"
 )
 
 func TestResolveShell(t *testing.T) {
@@ -139,6 +142,122 @@ func TestPTYRecorderContextCancelKillsShell(t *testing.T) {
 	if elapsed > 2*time.Second {
 		t.Fatalf("Record took %v, want < 2s", elapsed)
 	}
+}
+
+func TestPTYRecorderEmitsInitialResize(t *testing.T) {
+	requireSh(t)
+	master, slave := openPTYPair(t)
+
+	if err := pty.Setsize(master, &pty.Winsize{Cols: 120, Rows: 40}); err != nil {
+		t.Fatalf("Setsize master: %v", err)
+	}
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_, _ = master.Write([]byte("exit\n"))
+	}()
+
+	eventsPath := filepath.Join(t.TempDir(), "events.jsonl")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	r := NewPTYRecorder()
+	_, err := r.Record(ctx, Options{
+		Shell:      "/bin/sh",
+		EventsPath: eventsPath,
+		Stdin:      slave,
+		Stdout:     io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	evs, err := events.ReadAll(eventsPath)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	var first *events.Event
+	for i := range evs {
+		if evs[i].Type == events.TypeResize {
+			first = &evs[i]
+			break
+		}
+	}
+	if first == nil {
+		t.Fatal("no resize event found")
+	}
+	if first.TimeMS != 0 {
+		t.Fatalf("initial resize TimeMS = %d, want 0", first.TimeMS)
+	}
+	if first.Cols != 120 || first.Rows != 40 {
+		t.Fatalf("initial resize size = %dx%d, want 120x40", first.Cols, first.Rows)
+	}
+}
+
+func TestPTYRecorderHandlesSIGWINCH(t *testing.T) {
+	requireSh(t)
+	master, slave := openPTYPair(t)
+
+	if err := pty.Setsize(master, &pty.Winsize{Cols: 80, Rows: 24}); err != nil {
+		t.Fatalf("Setsize master: %v", err)
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		_ = pty.Setsize(master, &pty.Winsize{Cols: 100, Rows: 30})
+		_ = syscall.Kill(os.Getpid(), syscall.SIGWINCH)
+		time.Sleep(200 * time.Millisecond)
+		_, _ = master.Write([]byte("exit\n"))
+	}()
+
+	eventsPath := filepath.Join(t.TempDir(), "events.jsonl")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	r := NewPTYRecorder()
+	_, err := r.Record(ctx, Options{
+		Shell:      "/bin/sh",
+		EventsPath: eventsPath,
+		Stdin:      slave,
+		Stdout:     io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	evs, err := events.ReadAll(eventsPath)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	var resizes []events.Event
+	for _, e := range evs {
+		if e.Type == events.TypeResize {
+			resizes = append(resizes, e)
+		}
+	}
+	if len(resizes) < 2 {
+		t.Fatalf("resize event count = %d, want >= 2; events=%v", len(resizes), resizes)
+	}
+	last := resizes[len(resizes)-1]
+	if last.Cols != 100 || last.Rows != 30 {
+		t.Fatalf("last resize = %dx%d, want 100x30", last.Cols, last.Rows)
+	}
+	if last.TimeMS <= 0 {
+		t.Fatalf("last resize TimeMS = %d, want > 0", last.TimeMS)
+	}
+}
+
+func openPTYPair(t *testing.T) (*os.File, *os.File) {
+	t.Helper()
+	master, slave, err := pty.Open()
+	if err != nil {
+		t.Skipf("pty.Open: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = slave.Close()
+		_ = master.Close()
+	})
+	return master, slave
 }
 
 func requireSh(t *testing.T) {

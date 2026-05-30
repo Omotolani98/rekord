@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"sync"
 	"syscall"
 	"time"
@@ -65,6 +66,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	}
 	defer func() { _ = master.Close() }()
 
+	var ttyStdin *os.File
 	if stdinFile, ok := opts.Stdin.(*os.File); ok {
 		fd := int(stdinFile.Fd())
 		if term.IsTerminal(fd) {
@@ -73,10 +75,55 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 				defer func() { _ = term.Restore(fd, oldState) }()
 			}
 			_ = pty.InheritSize(stdinFile, master)
+			ttyStdin = stdinFile
 		}
 	}
 
 	result.StartedAt = time.Now()
+
+	if ttyStdin != nil {
+		if rows, cols, gerr := pty.Getsize(ttyStdin); gerr == nil {
+			if aerr := writer.Append(events.Event{
+				TimeMS: 0,
+				Type:   events.TypeResize,
+				Cols:   cols,
+				Rows:   rows,
+			}); aerr != nil && opts.Stderr != nil {
+				fmt.Fprintf(opts.Stderr, "recorder: append initial resize: %v\n", aerr)
+			}
+		}
+	}
+
+	resizeDone := make(chan struct{})
+	if ttyStdin != nil {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGWINCH)
+		go func() {
+			defer signal.Stop(sigCh)
+			for {
+				select {
+				case <-sigCh:
+					rows, cols, gerr := pty.Getsize(ttyStdin)
+					if gerr != nil {
+						continue
+					}
+					if serr := pty.Setsize(master, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}); serr != nil && opts.Stderr != nil {
+						fmt.Fprintf(opts.Stderr, "recorder: pty setsize: %v\n", serr)
+					}
+					if aerr := writer.Append(events.Event{
+						TimeMS: time.Since(result.StartedAt).Milliseconds(),
+						Type:   events.TypeResize,
+						Cols:   cols,
+						Rows:   rows,
+					}); aerr != nil && opts.Stderr != nil {
+						fmt.Fprintf(opts.Stderr, "recorder: append resize: %v\n", aerr)
+					}
+				case <-resizeDone:
+					return
+				}
+			}
+		}()
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -133,6 +180,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 
 	waitErr := cmd.Wait()
 	close(done)
+	close(resizeDone)
 	_ = master.Close()
 	wg.Wait()
 
