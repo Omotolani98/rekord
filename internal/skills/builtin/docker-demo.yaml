@@ -1,0 +1,6 @@
+name: docker-demo
+description: Record a basic Docker environment demo
+steps:
+  - run: docker version
+  - run: docker ps
+  - run: docker images

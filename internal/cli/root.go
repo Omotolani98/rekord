@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -63,12 +62,4 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	)
 
 	return cmd
-}
-
-func notImplemented(command string) error {
-	return fmt.Errorf("rekord %s is not implemented yet", command)
-}
-
-func commandPath(parts ...string) string {
-	return strings.Join(parts, " ")
 }
