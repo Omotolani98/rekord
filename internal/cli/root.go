@@ -57,6 +57,7 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newCommandsCommand(),
 		newScanCommand(),
 		newHandoffCommand(),
+		newConfigCommand(),
 		newTmuxCommand(),
 		newSkillsCommand(),
 		newDoctorCommand(),

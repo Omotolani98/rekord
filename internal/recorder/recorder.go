@@ -19,6 +19,7 @@ type Options struct {
 	Stdout     io.Writer
 	Stderr     io.Writer
 	KillGrace  time.Duration
+	StopKey    byte
 }
 
 type Result struct {

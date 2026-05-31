@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Omotolani98/rekord/internal/config"
 	"github.com/Omotolani98/rekord/internal/recorder"
 	"github.com/Omotolani98/rekord/internal/session"
 	"github.com/spf13/cobra"
@@ -15,29 +16,44 @@ import (
 )
 
 func newStartCommand() *cobra.Command {
-	var name, shell, cwd, root, timer string
+	var name, shell, cwd, root, timer, stopKey, cfgPath string
 
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Record an interactive terminal session",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStart(cmd, name, shell, cwd, root, timer)
+			return runStart(cmd, name, shell, cwd, root, timer, stopKey, cfgPath)
 		},
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "recording name (required)")
 	cmd.Flags().StringVar(&shell, "shell", "", "shell to record (default: $SHELL)")
 	cmd.Flags().StringVar(&cwd, "cwd", "", "working directory for the recorded shell")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().StringVar(&timer, "timer", "", "auto-stop after duration (e.g. 40s, 5m)")
+	cmd.Flags().StringVar(&stopKey, "stop-key", "", "hotkey to stop recording (e.g. ctrl-]); overrides config")
+	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with the stop-key default")
 
 	return cmd
 }
 
-func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer string) error {
+func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer, stopKey, cfgPath string) error {
 	if err := session.ValidateName(name); err != nil {
 		return fmt.Errorf("--name is required: %w", err)
+	}
+
+	keySpec := stopKey
+	if keySpec == "" {
+		cfg, err := config.Load(cfgPath)
+		if err != nil {
+			return err
+		}
+		keySpec = cfg.Recording.StopKey
+	}
+	stopByte, keyLabel, err := parseStopKey(keySpec)
+	if err != nil {
+		return err
 	}
 
 	var timeout time.Duration
@@ -94,6 +110,8 @@ func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer 
 		return fmt.Errorf("create session: %w", err)
 	}
 
+	fmt.Fprintf(cmd.ErrOrStderr(), "rekord: recording %q — press %s to stop\n", name, keyLabel)
+
 	eventsPath := filepath.Join(root, id, "events.jsonl")
 	rec := recorder.NewPTYRecorder()
 	res, recErr := rec.Record(ctx, recorder.Options{
@@ -103,6 +121,7 @@ func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer 
 		Stdin:      cmd.InOrStdin(),
 		Stdout:     cmd.OutOrStdout(),
 		Stderr:     cmd.ErrOrStderr(),
+		StopKey:    stopByte,
 	})
 
 	ended := res.EndedAt
