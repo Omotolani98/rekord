@@ -16,7 +16,7 @@ func newConfigCommand() *cobra.Command {
 		Use:   "config",
 		Short: "View and edit rekord configuration",
 	}
-	cmd.PersistentFlags().StringVar(&cfgPath, "config", "rekord.yaml", "config file path")
+	cmd.PersistentFlags().StringVar(&cfgPath, "config", defaultConfigPath(), "config file path")
 
 	cmd.AddCommand(
 		newConfigPathCommand(&cfgPath),

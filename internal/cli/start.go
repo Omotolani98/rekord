@@ -33,7 +33,7 @@ func newStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().StringVar(&timer, "timer", "", "auto-stop after duration (e.g. 40s, 5m)")
 	cmd.Flags().StringVar(&stopKey, "stop-key", "", "hotkey to stop recording (e.g. ctrl-]); overrides config")
-	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with the stop-key default")
+	cmd.Flags().StringVar(&cfgPath, "config", defaultConfigPath(), "config file with the stop-key default")
 
 	return cmd
 }
