@@ -12,7 +12,8 @@ func newVersionCommand() *cobra.Command {
 		Short: "Print the Rekord version",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "rekord %s\n", version)
+			st := newStyler(cmd.OutOrStdout())
+			fmt.Fprintf(cmd.OutOrStdout(), "rekord %s\n", st.bold(version))
 		},
 	}
 }

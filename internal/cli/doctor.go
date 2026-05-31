@@ -22,13 +22,14 @@ func newDoctorCommand() *cobra.Command {
 
 func runDoctor(cmd *cobra.Command) error {
 	out := cmd.OutOrStdout()
+	st := newStyler(out)
 	for _, tool := range doctorTools {
 		path, err := exec.LookPath(tool)
 		if err != nil {
-			fmt.Fprintf(out, "missing    %s\n", tool)
+			fmt.Fprintf(out, "%s    %s\n", st.red("missing"), tool)
 			continue
 		}
-		fmt.Fprintf(out, "available  %s (%s)\n", tool, path)
+		fmt.Fprintf(out, "%s  %s %s\n", st.green("available"), tool, st.dim("("+path+")"))
 	}
 	return nil
 }

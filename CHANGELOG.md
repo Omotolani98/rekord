@@ -4,6 +4,14 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.1.2 — 2026-05-31
+
+### Added
+- Colorized command output on a terminal: green `✓` on success, red `●`/`✗` for active
+  recording and detected secrets, dim `·` secondary notes, and a colored session `STATUS`
+  column in `list`. Color is disabled automatically for pipes/non-terminals and when
+  `NO_COLOR` is set, so scripted output stays plain.
+
 ## v0.1.1 — 2026-05-31
 
 ### Added
