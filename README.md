@@ -25,11 +25,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 ## Install
 
-Homebrew (available after the first tagged release):
+Homebrew:
 
 ```bash
-brew install Omotolani98/rekord/rekord
+brew tap Omotolani98/rekord
+brew install rekord
 ```
+
+(Or in one line: `brew install Omotolani98/rekord/rekord`.)
 
 With Go:
 
@@ -60,7 +63,7 @@ rekord scan demo --strict                   # fail if secrets are present
 ## Usage
 
 ```text
-rekord
+rekord  (alias: rk)
   start                 # record an interactive shell (--timer, --stop-key to stop)
   run -- <cmd>          # record a single command
   list                  # list recorded sessions
@@ -70,7 +73,11 @@ rekord
   scan <session>        # report possible secrets (--strict)
   handoff <session>     # AI context bundle (--include-git/--include-tree/--copy)
   doctor                # check for optional external tools
-  config                # get/set/view rekord.yaml (e.g. recording.stopKey)
+  config                # manage rekord.yaml (default ~/.rekord/rekord.yaml)
+    get <key>           # print a value (recording.stopKey, privacy.redact)
+    set <key> <value>   # set a value (creates the file if needed)
+    view                # print the merged config
+    path                # print the resolved config file path
   version
   tmux
     status              # is the shell inside tmux?
