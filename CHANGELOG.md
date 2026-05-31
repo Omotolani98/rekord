@@ -4,6 +4,13 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.1.3 — 2026-05-31
+
+### Changed
+- The config file now defaults to `~/.rekord/rekord.yaml` (alongside the sessions store),
+  falling back to a `./rekord.yaml` in the current directory when present. `--config <path>`
+  still overrides, and `rekord config set` creates `~/.rekord` if needed.
+
 ## v0.1.2 — 2026-05-31
 
 ### Added
