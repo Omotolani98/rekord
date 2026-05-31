@@ -29,7 +29,7 @@ func newExportCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&format, "to", "cast", "export format: cast, json, markdown, script, gif, mp4")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with prompt and redaction patterns")
 	cmd.Flags().StringVar(&size, "size", "720p", "mp4 size preset: 720p or 1080p")
 	cmd.Flags().BoolVar(&doRedact, "redact", false, "redact secrets in the export")
@@ -77,8 +77,11 @@ func runExport(cmd *cobra.Command, ref, format, output, root, cfgPath, size stri
 	}
 
 	outPath := output
-	if outPath == "" {
+	switch {
+	case outPath == "":
 		outPath = filepath.Join(store.SessionDir(m.ID), "exports", m.Name+"."+exp.Ext())
+	case filepath.Ext(outPath) == "":
+		outPath = outPath + "." + exp.Ext()
 	}
 
 	if err := exp.Export(ctx, m, evs, cmds, outPath); err != nil {

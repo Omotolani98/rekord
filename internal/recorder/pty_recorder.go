@@ -3,6 +3,7 @@
 package recorder
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -161,27 +162,52 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		}
 	}()
 
+	stopCh := make(chan struct{})
+	var stopOnce sync.Once
+	requestStop := func() { stopOnce.Do(func() { close(stopCh) }) }
+
 	go func() {
-		_, _ = io.Copy(master, opts.Stdin)
+		if opts.StopKey == 0 {
+			_, _ = io.Copy(master, opts.Stdin)
+			return
+		}
+		buf := make([]byte, ptyReadBufSize)
+		for {
+			n, rerr := opts.Stdin.Read(buf)
+			if n > 0 {
+				data := buf[:n]
+				if idx := bytes.IndexByte(data, opts.StopKey); idx >= 0 {
+					_, _ = master.Write(data[:idx])
+					requestStop()
+					return
+				}
+				_, _ = master.Write(data)
+			}
+			if rerr != nil {
+				return
+			}
+		}
 	}()
 
 	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
-			if cmd.Process == nil {
-				return
-			}
-			_ = cmd.Process.Signal(syscall.SIGTERM)
-			grace := opts.KillGrace
-			if grace <= 0 {
-				grace = defaultKillGrace
-			}
-			select {
-			case <-time.After(grace):
-				_ = cmd.Process.Kill()
-			case <-done:
-			}
+		case <-stopCh:
+		case <-done:
+			return
+		}
+		if cmd.Process == nil {
+			return
+		}
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		grace := opts.KillGrace
+		if grace <= 0 {
+			grace = defaultKillGrace
+		}
+		select {
+		case <-time.After(grace):
+			_ = cmd.Process.Kill()
 		case <-done:
 		}
 	}()

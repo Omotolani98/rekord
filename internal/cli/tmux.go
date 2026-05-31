@@ -74,7 +74,7 @@ func newTmuxCaptureCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&pane, "pane", "", "tmux pane or session target (required)")
 	cmd.Flags().StringVar(&name, "name", "", "recording name (required)")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	return cmd
 }
 
@@ -143,7 +143,7 @@ keystrokes are not recorded and sub-second timing is approximate.`,
 	}
 	cmd.Flags().StringVar(&pane, "pane", "", "tmux pane or session target (required)")
 	cmd.Flags().StringVar(&name, "name", "", "recording name (required)")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	return cmd
 }
 
@@ -188,7 +188,7 @@ func newTmuxStartCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "session", "", "tmux session name (required)")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	return cmd
 }
 

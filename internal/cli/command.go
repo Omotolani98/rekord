@@ -27,7 +27,7 @@ func newCommandsCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with prompt patterns")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "output as JSON")
 

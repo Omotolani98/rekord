@@ -10,7 +10,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 ## Features
 
 - **Record** interactive shells in a PTY (raw mode, terminal resize, `--timer`
-  auto-stop) or a single command (`run`).
+  auto-stop, `Ctrl-]` stop hotkey) or a single command (`run`).
 - **tmux** support: pane capture, `pipe-pane` streaming, and a managed session that
   records while you stay attached.
 - **Replay** sessions with original timing (`--speed`).
@@ -57,7 +57,7 @@ rekord scan demo --strict                   # fail if secrets are present
 
 ```text
 rekord
-  start                 # record an interactive shell (--timer to auto-stop)
+  start                 # record an interactive shell (--timer, --stop-key to stop)
   run -- <cmd>          # record a single command
   list                  # list recorded sessions
   replay <session>      # replay a session with original timing (--speed)
@@ -66,6 +66,7 @@ rekord
   scan <session>        # report possible secrets (--strict)
   handoff <session>     # AI context bundle (--include-git/--include-tree/--copy)
   doctor                # check for optional external tools
+  config                # get/set/view rekord.yaml (e.g. recording.stopKey)
   version
   tmux
     status              # is the shell inside tmux?
@@ -93,22 +94,27 @@ privacy:
   redact: true
   redactPatterns:
     - "mytoken-[0-9]+"
+recording:
+  stopKey: "ctrl-]"
 ```
+
+Edit it from the CLI with `rekord config set recording.stopKey ctrl-x` (and
+`rekord config view` to inspect the merged result).
 
 ## Session storage
 
-Each recording is a self-contained directory under `.rekord/`:
+Each recording is a self-contained directory under `~/.rekord/` (override with `--root`):
 
 ```text
-.rekord/sessions/<id>/
+~/.rekord/sessions/<id>/
   metadata.json     # session metadata
   events.jsonl      # append-only event log (output/input/resize)
   exports/          # generated cast/json/markdown/script/gif/mp4
   handoff/          # context.md, git.diff, tree.txt, logs.txt
 ```
 
-Recordings stay local under `.rekord/` and must not be committed; treat recorded
-output as sensitive (it may contain secrets).
+Recordings are stored in your home directory by default and treated as sensitive (they
+may contain secrets) — keep them out of version control.
 
 ## Development
 
