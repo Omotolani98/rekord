@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,26 @@ func CurrentSession(ctx context.Context) (string, error) {
 
 func CapturePane(ctx context.Context, pane string) (string, error) {
 	return output(ctx, "capture-pane", "-p", "-t", pane)
+}
+
+func PaneSize(ctx context.Context, pane string) (cols, rows int, err error) {
+	out, err := output(ctx, "display-message", "-p", "-t", pane, "#{pane_width} #{pane_height}")
+	if err != nil {
+		return 0, 0, err
+	}
+	fields := strings.Fields(out)
+	if len(fields) != 2 {
+		return 0, 0, fmt.Errorf("tmux pane size: unexpected output %q", strings.TrimSpace(out))
+	}
+	cols, err = strconv.Atoi(fields[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("tmux pane size: %w", err)
+	}
+	rows, err = strconv.Atoi(fields[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("tmux pane size: %w", err)
+	}
+	return cols, rows, nil
 }
 
 func HasSession(ctx context.Context, name string) bool {
