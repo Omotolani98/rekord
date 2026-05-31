@@ -38,16 +38,17 @@ func renderSessionTable(out io.Writer, sessions []session.Metadata) error {
 		return err
 	}
 
+	st := newStyler(out)
 	tw := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
-	if _, err := fmt.Fprintln(tw, "NAME\tDURATION\tSTATUS\tCREATED"); err != nil {
+	if _, err := fmt.Fprintln(tw, "NAME\tDURATION\tCREATED\tSTATUS"); err != nil {
 		return err
 	}
 	for _, m := range sessions {
 		if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			m.Name,
 			formatDuration(m.DurationMS),
-			m.Status,
 			m.CreatedAt.Local().Format("2006-01-02 15:04"),
+			st.statusColor(m.Status),
 		); err != nil {
 			return err
 		}

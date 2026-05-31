@@ -137,7 +137,13 @@ func runHandoff(cmd *cobra.Command, ref, root, cfgPath string, includeGit, inclu
 		}
 	}
 
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), contextPath)
+	out := cmd.OutOrStdout()
+	st := newStyler(out)
+	if st.on {
+		_, err = fmt.Fprintln(out, st.green("✓ ")+contextPath+st.dim(" · ready for your agent"))
+	} else {
+		_, err = fmt.Fprintln(out, contextPath)
+	}
 	return err
 }
 

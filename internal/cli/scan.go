@@ -70,14 +70,26 @@ func runScan(cmd *cobra.Command, ref, root, cfgPath string, strict bool) error {
 	categories := red.Scan(b.String())
 
 	out := cmd.OutOrStdout()
+	st := newStyler(out)
 	if len(categories) == 0 {
+		if st.on {
+			_, err := fmt.Fprintln(out, st.green("✓ ")+"No secrets detected.")
+			return err
+		}
 		_, err := fmt.Fprintln(out, "No secrets detected.")
 		return err
 	}
 
-	fmt.Fprintf(out, "Possible secrets found (%d categories):\n", len(categories))
-	for _, c := range categories {
-		fmt.Fprintf(out, "  - %s\n", c)
+	if st.on {
+		fmt.Fprintln(out, st.red("✗ ")+fmt.Sprintf("possible secrets found (%d)", len(categories)))
+		for _, c := range categories {
+			fmt.Fprintln(out, st.red("  - "+c))
+		}
+	} else {
+		fmt.Fprintf(out, "Possible secrets found (%d categories):\n", len(categories))
+		for _, c := range categories {
+			fmt.Fprintf(out, "  - %s\n", c)
+		}
 	}
 
 	if strict {

@@ -110,7 +110,12 @@ func runStart(cmd *cobra.Command, name, shellOverride, cwdOverride, root, timer,
 		return fmt.Errorf("create session: %w", err)
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "rekord: recording %q — press %s to stop\n", name, keyLabel)
+	st := newStyler(cmd.ErrOrStderr())
+	if st.on {
+		fmt.Fprintln(cmd.ErrOrStderr(), st.red("● ")+"recording "+st.bold(fmt.Sprintf("%q", name))+st.dim(" · press "+keyLabel+" to stop"))
+	} else {
+		fmt.Fprintf(cmd.ErrOrStderr(), "rekord: recording %q — press %s to stop\n", name, keyLabel)
+	}
 
 	eventsPath := filepath.Join(root, id, "events.jsonl")
 	rec := recorder.NewPTYRecorder()
