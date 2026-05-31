@@ -88,7 +88,13 @@ func runExport(cmd *cobra.Command, ref, format, output, root, cfgPath, size stri
 		return fmt.Errorf("export %s: %w", exp.Format(), err)
 	}
 
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), outPath)
+	out := cmd.OutOrStdout()
+	st := newStyler(out)
+	if st.on {
+		_, err = fmt.Fprintln(out, st.green("✓ ")+outPath+st.dim(fmt.Sprintf(" · %d commands", len(cmds))))
+	} else {
+		_, err = fmt.Fprintln(out, outPath)
+	}
 	return err
 }
 
