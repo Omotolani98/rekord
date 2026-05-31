@@ -40,6 +40,10 @@ go install github.com/Omotolani98/rekord/cmd/rekord@latest
 Or download a prebuilt archive for your platform from the
 [Releases](https://github.com/Omotolani98/rekord/releases) page.
 
+Every install ships a `rk` short alias — a drop-in equivalent of `rekord` (`rk version`,
+`rk start …`). Install it standalone with Go via
+`go install github.com/Omotolani98/rekord/cmd/rk@latest`.
+
 ## Quickstart
 
 ```bash
