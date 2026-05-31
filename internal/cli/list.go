@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -28,7 +27,7 @@ func newListCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 
 	return cmd
 }

@@ -101,7 +101,7 @@ func newSkillsRunCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "recording name (defaults to the skill name)")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().StringVar(&skillsDir, "skills-dir", filepath.Join(".rekord", "skills"), "local skills directory")
 	return cmd
 }

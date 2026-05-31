@@ -24,7 +24,7 @@ func newReplayCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 	cmd.Flags().Float64Var(&speed, "speed", 1.0, "playback speed multiplier")
 
 	return cmd

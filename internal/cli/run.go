@@ -26,7 +26,7 @@ func newRunCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "recording name (required)")
 	cmd.Flags().StringVar(&cwd, "cwd", "", "working directory for the recorded command")
-	cmd.Flags().StringVar(&root, "root", filepath.Join(".rekord", "sessions"), "sessions root directory")
+	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
 
 	return cmd
 }
