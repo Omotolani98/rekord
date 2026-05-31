@@ -17,6 +17,9 @@ func TestExecuteHelp(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Usage:") {
 		t.Fatalf("help output missing usage:\n%s", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "start") {
+		t.Fatalf("help output missing commands:\n%s", stdout.String())
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
@@ -48,5 +51,21 @@ func TestExecuteUnknownCommand(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), `unknown command "missing"`) {
 		t.Fatalf("stderr missing unknown command message:\n%s", stderr.String())
+	}
+}
+
+func TestExecuteCommandHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Execute([]string{"export", "--help"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("Execute returned %d, want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "--to") {
+		t.Fatalf("export help missing --to flag:\n%s", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }

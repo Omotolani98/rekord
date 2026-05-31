@@ -1,0 +1,6 @@
+name: github-actions-demo
+description: Record a GitHub Actions workflow demo
+steps:
+  - run: gh --version
+  - run: gh workflow list
+  - run: gh run list --limit 5

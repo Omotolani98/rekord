@@ -2,6 +2,7 @@
 
 # Go build output
 /rekord
+bin/
 *.test
 coverage.out
 dist/

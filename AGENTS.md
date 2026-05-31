@@ -41,6 +41,8 @@ This checkout does not include Git history, so use clear conventional-style comm
 
 Pull requests should include a short summary, test results (`go test ./...`), and any relevant CLI examples. Link issues when available. Include screenshots or terminal output only for user-visible CLI behavior.
 
+Use `gh pr create --base dev --head <branch>` to open pull requests from feature branches. Prefer draft PRs while implementation is still in progress.
+
 ## Security & Configuration Tips
 
 Treat recorded terminal output as sensitive. Do not commit `.rekord/`, real credentials, generated handoff bundles, or local `rekord.yaml` files containing private paths or tokens. Keep example configuration in files such as `rekord.yaml.example`.
