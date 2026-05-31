@@ -83,8 +83,9 @@ is installed.
 
 ## Configuration
 
-Optional `rekord.yaml` in the working directory tunes command extraction and
-redaction. Values are merged with the built-in defaults:
+An optional `rekord.yaml` tunes command extraction and redaction. By default Rekord reads
+`~/.rekord/rekord.yaml`, falling back to a `./rekord.yaml` in the current directory when one
+is present; `--config <path>` overrides either. Values are merged with the built-in defaults:
 
 ```yaml
 commands:
@@ -99,7 +100,8 @@ recording:
 ```
 
 Edit it from the CLI with `rekord config set recording.stopKey ctrl-x` (and
-`rekord config view` to inspect the merged result).
+`rekord config view` to inspect the merged result, or `rekord config path` to print the
+resolved file location).
 
 ## Session storage
 

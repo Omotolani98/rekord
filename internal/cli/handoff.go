@@ -40,7 +40,7 @@ func newHandoffCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
-	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with prompt and redaction patterns")
+	cmd.Flags().StringVar(&cfgPath, "config", defaultConfigPath(), "config file with prompt and redaction patterns")
 	cmd.Flags().BoolVar(&includeGit, "include-git", false, "include git status and diff context")
 	cmd.Flags().BoolVar(&includeTree, "include-tree", false, "include a repository tree snapshot")
 	cmd.Flags().BoolVar(&includeLogs, "include-logs", false, "include captured session logs")
