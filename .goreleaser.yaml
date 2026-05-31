@@ -20,6 +20,19 @@ builds:
       - arm64
     ldflags:
       - -s -w -X github.com/Omotolani98/rekord/internal/cli.version={{ .Version }}
+  - id: rk
+    main: ./cmd/rk
+    binary: rk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/Omotolani98/rekord/internal/cli.version={{ .Version }}
 
 archives:
   - id: rekord
@@ -61,5 +74,7 @@ brews:
     description: "Record terminal workflows as structured session data"
     install: |
       bin.install "rekord"
+      bin.install "rk"
     test: |
       system "#{bin}/rekord", "version"
+      system "#{bin}/rk", "version"

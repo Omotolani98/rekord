@@ -2,9 +2,26 @@ package cli
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"strings"
 	"testing"
 )
+
+func TestRootCommandName(t *testing.T) {
+	orig := os.Args[0]
+	t.Cleanup(func() { os.Args[0] = orig })
+
+	for _, tc := range []struct{ argv0, want string }{
+		{"/usr/local/bin/rk", "rk"},
+		{"/usr/local/bin/rekord", "rekord"},
+	} {
+		os.Args[0] = tc.argv0
+		if got := NewRootCommand(io.Discard, io.Discard).Name(); got != tc.want {
+			t.Errorf("argv0 %q: root name = %q, want %q", tc.argv0, got, tc.want)
+		}
+	}
+}
 
 func TestExecuteHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer

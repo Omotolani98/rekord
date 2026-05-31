@@ -6,6 +6,11 @@ All notable changes to Rekord are documented here. The format follows
 
 ## v0.1.3 — 2026-05-31
 
+### Added
+- `rk` short alias for the `rekord` command, shipped across all install channels
+  (`go install …/cmd/rk@latest`, release archives, and Homebrew). Help/usage reflects
+  whichever name is invoked.
+
 ### Changed
 - The config file now defaults to `~/.rekord/rekord.yaml` (alongside the sessions store),
   falling back to a `./rekord.yaml` in the current directory when present. `--config <path>`
