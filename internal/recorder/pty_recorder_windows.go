@@ -86,7 +86,9 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	if err != nil {
 		return result, fmt.Errorf("open pty: %w", err)
 	}
-	defer func() { _ = p.Close() }()
+	var closeOnce sync.Once
+	closePty := func() { closeOnce.Do(func() { _ = p.Close() }) }
+	defer closePty()
 
 	var cmd *pty.Cmd
 	if len(opts.Command) > 0 {
@@ -240,7 +242,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	waitErr := cmd.Wait()
 	close(done)
 	close(resizeDone)
-	_ = p.Close()
+	closePty()
 	wg.Wait()
 
 	result.EndedAt = time.Now()

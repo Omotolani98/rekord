@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,9 @@ func newTmuxTestSession(t *testing.T) string {
 }
 
 func TestTmuxStatusNotInside(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("tmux is not available on windows")
+	}
 	t.Setenv("TMUX", "")
 	var stdout, stderr bytes.Buffer
 	code := Execute([]string{"tmux", "status"}, &stdout, &stderr)

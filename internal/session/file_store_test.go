@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -94,6 +95,9 @@ func TestFileStoreRejectsPathTraversalID(t *testing.T) {
 }
 
 func TestFileStoreWritesRestrictivePerms(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix file permissions are not enforced on windows")
+	}
 	store := NewFileStore(t.TempDir())
 	metadata := testMetadata()
 
