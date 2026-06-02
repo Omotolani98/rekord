@@ -4,6 +4,25 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.1.7 — 2026-06-02
+
+### Added
+- Interactive recording (`start`, `run`, `skills`) now works on Windows via ConPTY
+  (`github.com/aymanbagabas/go-pty`), removing the v0.1.6 limitation. Default shell is
+  `powershell.exe`; window resizes are tracked by polling the console size.
+
+## v0.1.6 — 2026-06-02
+
+### Added
+- Windows builds (`rekord.exe` + `rk.exe`, amd64 and arm64), shipped as zip archives.
+- Chocolatey distribution: `choco install rekord` on Windows once the package clears
+  community-feed moderation.
+
+### Notes
+- Interactive recording (`start`, `run`, `skills`) is unix-only; on Windows it exits with
+  `interactive recording is not supported on windows`. Export, replay, list, commands, and
+  handoff work cross-platform on existing sessions.
+
 ## v0.1.5 — 2026-06-02
 
 ### Fixed
