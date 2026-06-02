@@ -10,6 +10,7 @@ func TestDefaultConfigPath(t *testing.T) {
 	home := t.TempDir()
 	work := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Chdir(work)
 
 	wantHome := filepath.Join(home, ".rekord", "rekord.yaml")
