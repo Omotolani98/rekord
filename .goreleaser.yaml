@@ -15,6 +15,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -28,6 +29,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -38,6 +40,10 @@ archives:
   - id: rekord
     formats:
       - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -78,3 +84,28 @@ brews:
     test: |
       system "#{bin}/rekord", "version"
       system "#{bin}/rk", "version"
+
+chocolateys:
+  - name: rekord
+    title: Rekord
+    ids:
+      - rekord
+    authors: Omotolani
+    project_url: "https://github.com/Omotolani98/rekord"
+    license_url: "https://github.com/Omotolani98/rekord/blob/main/LICENSE"
+    project_source_url: "https://github.com/Omotolani98/rekord"
+    package_source_url: "https://github.com/Omotolani98/rekord"
+    docs_url: "https://github.com/Omotolani98/rekord/blob/main/README.md"
+    bug_tracker_url: "https://github.com/Omotolani98/rekord/issues"
+    tags: "cli terminal recording asciinema session devtools"
+    summary: "Record terminal workflows as structured session data"
+    description: |
+      Rekord records terminal workflows as structured session data, then exports
+      to Markdown, JSON, asciinema casts, video, and AI handoff bundles.
+
+      Note: interactive recording (start/run) is unix-only; on Windows the export,
+      replay, list, commands, and handoff commands operate on existing sessions.
+    release_notes: "https://github.com/Omotolani98/rekord/blob/main/CHANGELOG.md"
+    api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
+    source_repo: "https://push.chocolatey.org/"
+    skip_publish: false
