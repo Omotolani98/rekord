@@ -1,6 +1,13 @@
-# Rekord
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/rekord-wordmark-dark.svg">
+    <img alt="rekord" src="assets/logo/rekord-wordmark.svg" width="300">
+  </picture>
+</p>
 
-[![CI](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml/badge.svg)](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://github.com/Omotolani98/rekord/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Omotolani98/rekord/actions/workflows/ci.yml/badge.svg"></a>
+</p>
 
 Rekord is a Go CLI that records terminal workflows as structured session data, then
 exports them to Markdown, JSON, asciinema casts, GIF/MP4, and AI-ready handoff bundles.
