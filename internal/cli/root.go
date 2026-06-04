@@ -67,6 +67,8 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newTmuxCommand(),
 		newSkillsCommand(),
 		newDoctorCommand(),
+		newMcpCommand(),
+		newSessionCommand(),
 	)
 
 	return cmd

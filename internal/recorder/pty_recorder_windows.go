@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/Omotolani98/rekord/internal/events"
-	"github.com/aymanbagabas/go-pty"
+	"github.com/Omotolani98/rekord/internal/ptyx"
 	"golang.org/x/sys/windows"
 	"golang.org/x/term"
 )
@@ -22,7 +22,6 @@ import (
 const (
 	ptyReadBufSize      = 4096
 	exitCodeUnknown     = -1
-	exitCodeUnavailable = -2
 	resizePollInterval  = 250 * time.Millisecond
 	defaultWindowsShell = "powershell.exe"
 )
@@ -82,27 +81,6 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	}
 	defer func() { _ = writer.Close() }()
 
-	p, err := pty.New()
-	if err != nil {
-		return result, fmt.Errorf("open pty: %w", err)
-	}
-	var closeOnce sync.Once
-	closePty := func() { closeOnce.Do(func() { _ = p.Close() }) }
-	defer closePty()
-
-	var cmd *pty.Cmd
-	if len(opts.Command) > 0 {
-		cmd = p.Command(opts.Command[0], opts.Command[1:]...)
-	} else {
-		cmd = p.Command(shell)
-	}
-	if opts.CWD != "" {
-		cmd.Dir = opts.CWD
-	}
-	if opts.Env != nil {
-		cmd.Env = opts.Env
-	}
-
 	restoreVT := enableVirtualTerminal(opts.Stdout)
 	defer restoreVT()
 
@@ -118,9 +96,16 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		}
 	}
 
-	if err := cmd.Start(); err != nil {
-		return result, fmt.Errorf("start pty command: %w", err)
+	handle, err := ptyx.Start(ptyx.Options{
+		Command: opts.Command,
+		Shell:   shell,
+		CWD:     opts.CWD,
+		Env:     opts.Env,
+	})
+	if err != nil {
+		return result, fmt.Errorf("start pty: %w", err)
 	}
+	defer func() { _ = handle.Close() }()
 
 	result.StartedAt = time.Now()
 
@@ -128,7 +113,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	if ttyStdin != nil {
 		if cols, rows, gerr := term.GetSize(int(ttyStdin.Fd())); gerr == nil {
 			lastCols, lastRows = cols, rows
-			_ = p.Resize(cols, rows)
+			_ = handle.Resize(cols, rows)
 			if aerr := writer.Append(events.Event{
 				TimeMS: 0,
 				Type:   events.TypeResize,
@@ -153,7 +138,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 						continue
 					}
 					lastCols, lastRows = cols, rows
-					if serr := p.Resize(cols, rows); serr != nil && opts.Stderr != nil {
+					if serr := handle.Resize(cols, rows); serr != nil && opts.Stderr != nil {
 						fmt.Fprintf(opts.Stderr, "recorder: pty resize: %v\n", serr)
 					}
 					if aerr := writer.Append(events.Event{
@@ -177,7 +162,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		defer wg.Done()
 		buf := make([]byte, ptyReadBufSize)
 		for {
-			n, rerr := p.Read(buf)
+			n, rerr := handle.Read(buf)
 			if n > 0 {
 				chunk := make([]byte, n)
 				copy(chunk, buf[:n])
@@ -205,7 +190,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 
 	go func() {
 		if opts.StopKey == 0 {
-			_, _ = io.Copy(p, opts.Stdin)
+			_, _ = io.Copy(handle, opts.Stdin)
 			return
 		}
 		buf := make([]byte, ptyReadBufSize)
@@ -214,11 +199,11 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 			if n > 0 {
 				data := buf[:n]
 				if idx := bytes.IndexByte(data, opts.StopKey); idx >= 0 {
-					_, _ = p.Write(data[:idx])
+					_, _ = handle.Write(data[:idx])
 					requestStop()
 					return
 				}
-				_, _ = p.Write(data)
+				_, _ = handle.Write(data)
 			}
 			if rerr != nil {
 				return
@@ -234,25 +219,18 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		case <-done:
 			return
 		}
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		_ = handle.Kill()
 	}()
 
-	waitErr := cmd.Wait()
+	exitCode, waitErr := handle.Wait()
 	close(done)
 	close(resizeDone)
-	closePty()
+	_ = handle.Close()
 	wg.Wait()
 
 	result.EndedAt = time.Now()
 	result.DurationMS = result.EndedAt.Sub(result.StartedAt).Milliseconds()
-
-	if cmd.ProcessState != nil {
-		result.ExitCode = cmd.ProcessState.ExitCode()
-	} else {
-		result.ExitCode = exitCodeUnavailable
-	}
+	result.ExitCode = exitCode
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return result, ctxErr
