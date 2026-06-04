@@ -4,6 +4,28 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.2.0 — 2026-06-04
+
+### Added
+- **Live agent-driven terminal control via MCP** (`rekord mcp`). Runs a Model Context
+  Protocol server over stdio so an AI agent (Claude Code, Cursor, …) can drive real terminal
+  programs instead of guessing at output. Tools: `launch`, `send`, `capture`, `wait_text`,
+  `wait_idle`, `wait_exit`, `logs`, `resize`, `stop`, `list`, `status`. `capture` returns a
+  deterministic screen frame (character grid + cursor), parsed with a built-in VT emulator.
+  Captures and logs are redacted by default; pass `raw: true` to opt out.
+- **Persistent named sessions over a local socket** (`rekord session`). `session start
+  --name <name> -- <command>` launches a detached background session reachable by other
+  processes through an owner-only unix socket (`<root>/<name>.sock`, mode 0600).
+  `session send`, `show`, `wait`, `status`, `list`, and `stop` drive it; the session retains
+  its final screen after the program exits until you `stop` it.
+- Agent- and socket-driven sessions are ordinary recordings: they write `metadata.json` and
+  `events.jsonl` (now including `input` events) under the sessions root, so `rekord export`,
+  `replay`, `commands`, and `handoff` work on them unchanged.
+
+### Notes
+- The MCP server holds sessions in-process for its lifetime; the `rekord session` socket
+  layer is a separate surface. Bridging `rekord mcp` onto persistent sockets is planned.
+
 ## v0.1.7 — 2026-06-02
 
 ### Added

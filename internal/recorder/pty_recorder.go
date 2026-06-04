@@ -16,15 +16,15 @@ import (
 	"time"
 
 	"github.com/Omotolani98/rekord/internal/events"
+	"github.com/Omotolani98/rekord/internal/ptyx"
 	"github.com/creack/pty"
 	"golang.org/x/term"
 )
 
 const (
-	ptyReadBufSize      = 4096
-	defaultKillGrace    = 2 * time.Second
-	exitCodeUnknown     = -1
-	exitCodeUnavailable = -2
+	ptyReadBufSize   = 4096
+	defaultKillGrace = 2 * time.Second
+	exitCodeUnknown  = -1
 )
 
 type PTYRecorder struct{}
@@ -56,24 +56,16 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 	}
 	defer func() { _ = writer.Close() }()
 
-	var cmd *exec.Cmd
-	if len(opts.Command) > 0 {
-		cmd = exec.Command(opts.Command[0], opts.Command[1:]...)
-	} else {
-		cmd = exec.Command(shell)
-	}
-	if opts.CWD != "" {
-		cmd.Dir = opts.CWD
-	}
-	if opts.Env != nil {
-		cmd.Env = opts.Env
-	}
-
-	master, err := pty.Start(cmd)
+	handle, err := ptyx.Start(ptyx.Options{
+		Command: opts.Command,
+		Shell:   shell,
+		CWD:     opts.CWD,
+		Env:     opts.Env,
+	})
 	if err != nil {
 		return result, fmt.Errorf("start pty: %w", err)
 	}
-	defer func() { _ = master.Close() }()
+	defer func() { _ = handle.Close() }()
 
 	var ttyStdin *os.File
 	if stdinFile, ok := opts.Stdin.(*os.File); ok {
@@ -83,7 +75,9 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 			if terr == nil {
 				defer func() { _ = term.Restore(fd, oldState) }()
 			}
-			_ = pty.InheritSize(stdinFile, master)
+			if rows, cols, gerr := pty.Getsize(stdinFile); gerr == nil {
+				_ = handle.Resize(cols, rows)
+			}
 			ttyStdin = stdinFile
 		}
 	}
@@ -116,8 +110,8 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 					if gerr != nil {
 						continue
 					}
-					if serr := pty.Setsize(master, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}); serr != nil && opts.Stderr != nil {
-						fmt.Fprintf(opts.Stderr, "recorder: pty setsize: %v\n", serr)
+					if serr := handle.Resize(cols, rows); serr != nil && opts.Stderr != nil {
+						fmt.Fprintf(opts.Stderr, "recorder: pty resize: %v\n", serr)
 					}
 					if aerr := writer.Append(events.Event{
 						TimeMS: time.Since(result.StartedAt).Milliseconds(),
@@ -140,7 +134,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		defer wg.Done()
 		buf := make([]byte, ptyReadBufSize)
 		for {
-			n, rerr := master.Read(buf)
+			n, rerr := handle.Read(buf)
 			if n > 0 {
 				chunk := make([]byte, n)
 				copy(chunk, buf[:n])
@@ -168,7 +162,7 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 
 	go func() {
 		if opts.StopKey == 0 {
-			_, _ = io.Copy(master, opts.Stdin)
+			_, _ = io.Copy(handle, opts.Stdin)
 			return
 		}
 		buf := make([]byte, ptyReadBufSize)
@@ -177,11 +171,11 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 			if n > 0 {
 				data := buf[:n]
 				if idx := bytes.IndexByte(data, opts.StopKey); idx >= 0 {
-					_, _ = master.Write(data[:idx])
+					_, _ = handle.Write(data[:idx])
 					requestStop()
 					return
 				}
-				_, _ = master.Write(data)
+				_, _ = handle.Write(data)
 			}
 			if rerr != nil {
 				return
@@ -197,35 +191,27 @@ func (r *PTYRecorder) Record(ctx context.Context, opts Options) (Result, error) 
 		case <-done:
 			return
 		}
-		if cmd.Process == nil {
-			return
-		}
-		_ = cmd.Process.Signal(syscall.SIGTERM)
+		_ = handle.Signal(syscall.SIGTERM)
 		grace := opts.KillGrace
 		if grace <= 0 {
 			grace = defaultKillGrace
 		}
 		select {
 		case <-time.After(grace):
-			_ = cmd.Process.Kill()
+			_ = handle.Kill()
 		case <-done:
 		}
 	}()
 
-	waitErr := cmd.Wait()
+	exitCode, waitErr := handle.Wait()
 	close(done)
 	close(resizeDone)
 	wg.Wait()
-	_ = master.Close()
+	_ = handle.Close()
 
 	result.EndedAt = time.Now()
 	result.DurationMS = result.EndedAt.Sub(result.StartedAt).Milliseconds()
-
-	if cmd.ProcessState != nil {
-		result.ExitCode = cmd.ProcessState.ExitCode()
-	} else {
-		result.ExitCode = exitCodeUnavailable
-	}
+	result.ExitCode = exitCode
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return result, ctxErr
