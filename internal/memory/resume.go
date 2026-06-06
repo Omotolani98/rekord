@@ -27,7 +27,7 @@ func BuildResumeContext(ctx context.Context, store Store, opts ResumeOptions) (R
 	if limit <= 0 {
 		limit = 8
 	}
-	f := Filter{Project: project, Agent: opts.Agent, FromAgent: opts.FromAgent, Session: opts.Session, Limit: limit}
+	f := Filter{Project: project, Agent: opts.Agent, Session: opts.Session, Limit: limit}
 	latest, err := store.LatestSnapshot(ctx, f)
 	var latestPtr *Snapshot
 	if err == nil {
@@ -35,7 +35,7 @@ func BuildResumeContext(ctx context.Context, store Store, opts ResumeOptions) (R
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return ResumeContext{}, err
 	}
-	open, err := store.ListMemories(ctx, Filter{Project: project, Agent: opts.Agent, FromAgent: opts.FromAgent, Session: opts.Session, Status: StatusOpen, Limit: limit})
+	open, err := store.ListMemories(ctx, Filter{Project: project, Agent: opts.Agent, Session: opts.Session, Status: StatusOpen, Limit: limit})
 	if err != nil {
 		return ResumeContext{}, err
 	}
@@ -65,6 +65,9 @@ func BuildResumeContext(ctx context.Context, store Store, opts ResumeOptions) (R
 func FormatResume(rc ResumeContext) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Project: %s\n", rc.Project)
+	if rc.Project != "" {
+		fmt.Fprintf(&b, "Storage key: %s\n", ProjectKey(rc.Project))
+	}
 	if rc.FromAgent != "" || rc.Agent != "" {
 		agent := rc.FromAgent
 		if agent == "" {

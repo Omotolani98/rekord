@@ -50,6 +50,9 @@ func (s *FileStore) AddMemory(ctx context.Context, m Memory) error {
 	if m.Status == "" {
 		m.Status = StatusOpen
 	}
+	if err := s.writeProjectInfo(m.Project); err != nil {
+		return err
+	}
 	return appendJSONL(s.memoriesPath(m.Project), m)
 }
 
@@ -71,7 +74,7 @@ func (s *FileStore) ListMemories(ctx context.Context, f Filter) ([]Memory, error
 }
 
 func (s *FileStore) SearchMemories(ctx context.Context, query string, f Filter) ([]Memory, error) {
-	items, err := s.ListMemories(ctx, Filter{Project: f.Project, Agent: f.Agent, FromAgent: f.FromAgent, Session: f.Session, Status: f.Status})
+	items, err := s.ListMemories(ctx, Filter{Project: f.Project, Agent: f.Agent, Session: f.Session, Status: f.Status})
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +149,9 @@ func (s *FileStore) CreateSnapshot(ctx context.Context, snap Snapshot) error {
 		return err
 	}
 	if err := validateSnapshot(snap); err != nil {
+		return err
+	}
+	if err := s.writeProjectInfo(snap.Project); err != nil {
 		return err
 	}
 	path := s.snapshotPath(snap.Project, snap.ID)
@@ -223,6 +229,64 @@ func (s *FileStore) snapshotsDir(project string) string {
 
 func (s *FileStore) memoriesPath(project string) string {
 	return filepath.Join(s.ProjectDir(project), "memories.jsonl")
+}
+
+func (s *FileStore) projectInfoPath(project string) string {
+	return filepath.Join(s.ProjectDir(project), "project.json")
+}
+
+func (s *FileStore) writeProjectInfo(project string) error {
+	project, err := NormalizeProject(project)
+	if err != nil {
+		return err
+	}
+	path := s.projectInfoPath(project)
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	info := ProjectInfo{Path: project, Key: ProjectKey(project)}
+	data, err := json.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode project info: %w", err)
+	}
+	return writeFileAtomic(path, append(data, '\n'))
+}
+
+func (s *FileStore) ListProjects(ctx context.Context) ([]ProjectInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(s.root)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read projects: %w", err)
+	}
+	var out []ProjectInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(s.root, entry.Name(), "project.json"))
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				out = append(out, ProjectInfo{Key: entry.Name()})
+				continue
+			}
+			return nil, fmt.Errorf("read project info: %w", err)
+		}
+		var info ProjectInfo
+		if err := json.Unmarshal(data, &info); err != nil {
+			return nil, fmt.Errorf("decode project info: %w", err)
+		}
+		if info.Key == "" {
+			info.Key = entry.Name()
+		}
+		out = append(out, info)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out, nil
 }
 
 func (s *FileStore) snapshotPath(project, id string) string {
@@ -363,11 +427,7 @@ func filterMemories(items []Memory, f Filter) []Memory {
 }
 
 func matchMemory(m Memory, f Filter) bool {
-	agent := f.Agent
-	if agent == "" {
-		agent = f.FromAgent
-	}
-	if agent != "" && m.Agent != agent {
+	if f.Agent != "" && m.Agent != f.Agent {
 		return false
 	}
 	if f.Status != "" && m.Status != f.Status {
@@ -380,11 +440,7 @@ func matchMemory(m Memory, f Filter) bool {
 }
 
 func matchSnapshot(s Snapshot, f Filter) bool {
-	agent := f.Agent
-	if agent == "" {
-		agent = f.FromAgent
-	}
-	if agent != "" && s.Agent != agent {
+	if f.Agent != "" && s.Agent != f.Agent {
 		return false
 	}
 	if f.Session != "" && s.SessionID != f.Session && s.SessionName != f.Session {

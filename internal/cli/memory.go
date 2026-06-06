@@ -56,7 +56,7 @@ func newRecallCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := store.SearchMemories(cmd.Context(), query, mem.Filter{Project: project, Agent: flags.agent, FromAgent: flags.fromAgent, Session: flags.session, Limit: flags.limit})
+			items, err := store.SearchMemories(cmd.Context(), query, mem.Filter{Project: project, Agent: flags.agent, Session: flags.session, Limit: flags.limit})
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,6 @@ func newRecallCommand() *cobra.Command {
 		},
 	}
 	addMemoryCommonFlags(cmd, &flags)
-	cmd.Flags().StringVar(&flags.fromAgent, "from-agent", "", "source agent to recall from")
 	cmd.Flags().IntVar(&flags.limit, "limit", 10, "maximum memories to show")
 	return cmd
 }
@@ -148,7 +147,38 @@ func newMemoryCommand() *cobra.Command {
 		Use:   "memory",
 		Short: "Manage Rekord project memory",
 	}
-	cmd.AddCommand(newMemoryAddCommand(), newMemoryListCommand(), newMemorySearchCommand(), newMemoryShowCommand(), newMemoryResolveCommand())
+	cmd.AddCommand(newMemoryAddCommand(), newMemoryListCommand(), newMemorySearchCommand(), newMemoryShowCommand(), newMemoryResolveCommand(), newMemoryProjectsCommand())
+	return cmd
+}
+
+func newMemoryProjectsCommand() *cobra.Command {
+	var root string
+	cmd := &cobra.Command{
+		Use:   "projects",
+		Short: "List projects with stored memory",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store := mem.NewFileStore(root)
+			projects, err := store.ListProjects(cmd.Context())
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(projects) == 0 {
+				_, err := fmt.Fprintln(out, "no projects found")
+				return err
+			}
+			for _, p := range projects {
+				path := p.Path
+				if path == "" {
+					path = "(unknown path)"
+				}
+				fmt.Fprintf(out, "%s  %s\n", p.Key, path)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&root, "memory-root", mem.DefaultRoot(), "memory root directory")
 	return cmd
 }
 
@@ -186,7 +216,7 @@ func newMemoryListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := store.ListMemories(cmd.Context(), mem.Filter{Project: project, Agent: flags.agent, FromAgent: flags.fromAgent, Session: flags.session, Status: status, Limit: flags.limit})
+			items, err := store.ListMemories(cmd.Context(), mem.Filter{Project: project, Agent: flags.agent, Session: flags.session, Status: status, Limit: flags.limit})
 			if err != nil {
 				return err
 			}
@@ -210,7 +240,7 @@ func newMemorySearchCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			items, err := store.SearchMemories(cmd.Context(), strings.Join(args, " "), mem.Filter{Project: project, Agent: flags.agent, FromAgent: flags.fromAgent, Session: flags.session, Limit: flags.limit})
+			items, err := store.SearchMemories(cmd.Context(), strings.Join(args, " "), mem.Filter{Project: project, Agent: flags.agent, Session: flags.session, Limit: flags.limit})
 			if err != nil {
 				return err
 			}
