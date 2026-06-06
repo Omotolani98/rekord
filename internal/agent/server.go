@@ -3,12 +3,14 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/Omotolani98/rekord/internal/frame"
 	"github.com/Omotolani98/rekord/internal/live"
+	mem "github.com/Omotolani98/rekord/internal/memory"
 	"github.com/Omotolani98/rekord/internal/redact"
 )
 
@@ -85,6 +87,41 @@ func (d *deps) register(srv *mcp.Server) {
 		Name:        "status",
 		Description: "Report the status of a single session.",
 	}, d.status)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_write",
+		Description: "Write a durable project memory that can be recalled by future agents.",
+	}, d.memoryWrite)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_search",
+		Description: "Search durable project memory by query, agent, or session.",
+	}, d.memorySearch)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_list",
+		Description: "List durable project memories, newest first.",
+	}, d.memoryList)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_get",
+		Description: "Return a single project memory by id.",
+	}, d.memoryGet)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_resolve",
+		Description: "Mark a project memory as resolved.",
+	}, d.memoryResolve)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "snapshot_create",
+		Description: "Create a resumable project snapshot with git patch files.",
+	}, d.snapshotCreate)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "resume_context",
+		Description: "Return agent-ready context for resuming project work from memory.",
+	}, d.resumeContext)
 }
 
 type LaunchInput struct {
@@ -307,6 +344,198 @@ func (d *deps) status(_ context.Context, _ *mcp.CallToolRequest, in StatusInput)
 	}
 	st := s.Status()
 	return text(fmt.Sprintf("%q running=%v", st.Name, st.Running)), st, nil
+}
+
+type MemoryWriteInput struct {
+	Project      string   `json:"project,omitempty" jsonschema:"project directory (default current working directory)"`
+	Agent        string   `json:"agent,omitempty" jsonschema:"agent that produced this memory, e.g. claude or codex"`
+	Actor        string   `json:"actor,omitempty" jsonschema:"human or agent"`
+	Session      string   `json:"session,omitempty" jsonschema:"session name or id to link"`
+	Title        string   `json:"title,omitempty"`
+	Body         string   `json:"body"`
+	Type         string   `json:"type,omitempty" jsonschema:"note, fact, decision, todo, blocker, warning"`
+	Tags         []string `json:"tags,omitempty"`
+	RelatedFiles []string `json:"related_files,omitempty"`
+}
+
+func (d *deps) memoryWrite(ctx context.Context, _ *mcp.CallToolRequest, in MemoryWriteInput) (*mcp.CallToolResult, mem.Memory, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, mem.Memory{}, err
+	}
+	now := time.Now()
+	title := strings.TrimSpace(in.Title)
+	if title == "" {
+		title = strings.TrimSpace(in.Body)
+	}
+	sessionID, sessionName := agentSessionParts(in.Session)
+	m := mem.Memory{
+		ID:           mem.NewID("mem", title, now),
+		Project:      project,
+		Agent:        strings.TrimSpace(in.Agent),
+		Actor:        defaultAgentString(in.Actor, "agent"),
+		Source:       mem.SourceMCP,
+		SessionID:    sessionID,
+		SessionName:  sessionName,
+		Type:         defaultAgentString(in.Type, mem.TypeNote),
+		Status:       mem.StatusOpen,
+		Title:        title,
+		Body:         strings.TrimSpace(in.Body),
+		Tags:         in.Tags,
+		RelatedFiles: in.RelatedFiles,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if err := store.AddMemory(ctx, m); err != nil {
+		return nil, mem.Memory{}, err
+	}
+	return text(fmt.Sprintf("wrote memory %s", m.ID)), m, nil
+}
+
+type MemorySearchInput struct {
+	Project   string `json:"project,omitempty"`
+	Query     string `json:"query,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	FromAgent string `json:"from_agent,omitempty"`
+	Session   string `json:"session,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+}
+
+type MemoriesOutput struct {
+	Memories []mem.Memory `json:"memories"`
+}
+
+func (d *deps) memorySearch(ctx context.Context, _ *mcp.CallToolRequest, in MemorySearchInput) (*mcp.CallToolResult, MemoriesOutput, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, MemoriesOutput{}, err
+	}
+	items, err := store.SearchMemories(ctx, in.Query, mem.Filter{Project: project, Agent: in.Agent, FromAgent: in.FromAgent, Session: in.Session, Status: in.Status, Limit: in.Limit})
+	if err != nil {
+		return nil, MemoriesOutput{}, err
+	}
+	return text(fmt.Sprintf("%d memory(s)", len(items))), MemoriesOutput{Memories: items}, nil
+}
+
+func (d *deps) memoryList(ctx context.Context, _ *mcp.CallToolRequest, in MemorySearchInput) (*mcp.CallToolResult, MemoriesOutput, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, MemoriesOutput{}, err
+	}
+	items, err := store.ListMemories(ctx, mem.Filter{Project: project, Agent: in.Agent, FromAgent: in.FromAgent, Session: in.Session, Status: in.Status, Limit: in.Limit})
+	if err != nil {
+		return nil, MemoriesOutput{}, err
+	}
+	return text(fmt.Sprintf("%d memory(s)", len(items))), MemoriesOutput{Memories: items}, nil
+}
+
+type MemoryGetInput struct {
+	Project string `json:"project,omitempty"`
+	ID      string `json:"id"`
+}
+
+func (d *deps) memoryGet(ctx context.Context, _ *mcp.CallToolRequest, in MemoryGetInput) (*mcp.CallToolResult, mem.Memory, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, mem.Memory{}, err
+	}
+	m, err := store.GetMemory(ctx, project, in.ID)
+	if err != nil {
+		return nil, mem.Memory{}, err
+	}
+	return text(m.Body), m, nil
+}
+
+func (d *deps) memoryResolve(ctx context.Context, _ *mcp.CallToolRequest, in MemoryGetInput) (*mcp.CallToolResult, mem.Memory, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, mem.Memory{}, err
+	}
+	m, err := store.GetMemory(ctx, project, in.ID)
+	if err != nil {
+		return nil, mem.Memory{}, err
+	}
+	m.Status = mem.StatusResolved
+	m.UpdatedAt = time.Now()
+	if err := store.UpdateMemory(ctx, m); err != nil {
+		return nil, mem.Memory{}, err
+	}
+	return text(fmt.Sprintf("resolved memory %s", m.ID)), m, nil
+}
+
+type SnapshotCreateInput struct {
+	Project string `json:"project,omitempty"`
+	Agent   string `json:"agent,omitempty"`
+	Actor   string `json:"actor,omitempty"`
+	Session string `json:"session,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Note    string `json:"note,omitempty"`
+}
+
+func (d *deps) snapshotCreate(ctx context.Context, _ *mcp.CallToolRequest, in SnapshotCreateInput) (*mcp.CallToolResult, mem.Snapshot, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, mem.Snapshot{}, err
+	}
+	snap, err := mem.CreateSnapshot(ctx, store, mem.SnapshotOptions{
+		Project: project,
+		Agent:   in.Agent,
+		Actor:   defaultAgentString(in.Actor, "agent"),
+		Source:  mem.SourceMCP,
+		Session: in.Session,
+		Title:   in.Title,
+		Note:    in.Note,
+	})
+	if err != nil {
+		return nil, mem.Snapshot{}, err
+	}
+	return text(fmt.Sprintf("created snapshot %s", snap.ID)), snap, nil
+}
+
+type ResumeContextInput struct {
+	Project   string `json:"project,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	FromAgent string `json:"from_agent,omitempty"`
+	ToAgent   string `json:"to_agent,omitempty"`
+	Session   string `json:"session,omitempty"`
+	Query     string `json:"query,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+}
+
+func (d *deps) resumeContext(ctx context.Context, _ *mcp.CallToolRequest, in ResumeContextInput) (*mcp.CallToolResult, mem.ResumeContext, error) {
+	project, store, err := agentMemoryStore(in.Project)
+	if err != nil {
+		return nil, mem.ResumeContext{}, err
+	}
+	rc, err := mem.BuildResumeContext(ctx, store, mem.ResumeOptions{Project: project, Agent: in.Agent, FromAgent: in.FromAgent, ToAgent: in.ToAgent, Session: in.Session, Query: in.Query, Limit: in.Limit})
+	if err != nil {
+		return nil, mem.ResumeContext{}, err
+	}
+	return text(rc.Summary), rc, nil
+}
+
+func agentMemoryStore(project string) (string, *mem.FileStore, error) {
+	project, err := mem.NormalizeProject(project)
+	if err != nil {
+		return "", nil, err
+	}
+	return project, mem.NewFileStore(mem.DefaultRoot()), nil
+}
+
+func agentSessionParts(session string) (string, string) {
+	if strings.HasPrefix(session, "sess_") || strings.Contains(session, "_") {
+		return session, ""
+	}
+	return "", session
+}
+
+func defaultAgentString(v, fallback string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return fallback
+	}
+	return v
 }
 
 func (d *deps) maybeRedact(f frame.Frame, raw bool) frame.Frame {

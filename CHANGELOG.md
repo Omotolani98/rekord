@@ -4,6 +4,37 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.3.0 — 2026-06-06
+
+### Added
+- **Rekord Memory**, a user-local shared memory layer for humans and coding agents.
+  Memories are stored per project under `~/.rekord/projects/<project-hash>/memories.jsonl`
+  and can be created, searched, resolved, and used to resume work across terminal sessions.
+- New memory commands:
+  - `rekord remember <text>` stores a durable project memory.
+  - `rekord recall [query]` searches project memory.
+  - `rekord resume` generates agent-ready continuation context.
+  - `rekord snapshot [note]` captures a resumable project checkpoint.
+  - `rekord memory add/list/search/show/resolve` provides full memory management.
+- **Agent-to-agent handoff** through memory filters. `--agent`, `--from-agent`,
+  `--to-agent`, and `--session` let users resume work from a specific agent or named
+  session, for example `rekord resume --from-agent claude --to-agent codex`.
+- **Named session linkage** for memory and snapshots. Agents can attach memories and
+  snapshots to a human-readable Rekord session name so users can resume later with
+  `rekord resume --session <name>`.
+- **Full git patch snapshots**. `rekord snapshot` captures git branch, HEAD, dirty state,
+  changed files, and full binary-safe unstaged/staged patches under
+  `~/.rekord/projects/<project-hash>/patches/`.
+- **MCP memory tools** for coding agents:
+  `memory_write`, `memory_search`, `memory_list`, `memory_get`, `memory_resolve`,
+  `snapshot_create`, and `resume_context`.
+
+### Notes
+- Rekord Memory is user-local by default. It does not write `.rekord/` files into the
+  current repository unless users choose to export or copy memory artifacts themselves.
+- `resume_context` is the primary MCP handoff primitive: agents can ask Rekord what
+  happened, what changed, what failed, and where to continue.
+
 ## v0.2.0 — 2026-06-04
 
 ### Added

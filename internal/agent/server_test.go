@@ -5,7 +5,9 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +20,96 @@ import (
 
 func defaultRedactorForTest() *redact.Redactor {
 	return redact.NewDefault()
+}
+
+func TestMCPMemoryToolsSupportAgentHandoff(t *testing.T) {
+	t.Setenv("REKORD_MEMORY_ROOT", t.TempDir())
+	project := t.TempDir()
+	d := &deps{}
+	ctx := context.Background()
+
+	_, written, err := d.memoryWrite(ctx, nil, MemoryWriteInput{
+		Project: project,
+		Agent:   "claude",
+		Session: "memory-claude",
+		Body:    "Claude stopped at the failing parser test",
+		Tags:    []string{"parser"},
+	})
+	if err != nil {
+		t.Fatalf("memoryWrite: %v", err)
+	}
+	if written.Agent != "claude" || written.SessionName != "memory-claude" {
+		t.Fatalf("written memory = %+v", written)
+	}
+
+	_, found, err := d.memorySearch(ctx, nil, MemorySearchInput{Project: project, Query: "parser", Agent: "claude"})
+	if err != nil {
+		t.Fatalf("memorySearch: %v", err)
+	}
+	if len(found.Memories) != 1 || found.Memories[0].ID != written.ID {
+		t.Fatalf("found = %+v, want %s", found.Memories, written.ID)
+	}
+
+	_, rc, err := d.resumeContext(ctx, nil, ResumeContextInput{Project: project, FromAgent: "claude", ToAgent: "codex"})
+	if err != nil {
+		t.Fatalf("resumeContext: %v", err)
+	}
+	if !strings.Contains(rc.Summary, "Claude stopped") || !strings.Contains(rc.Summary, "Intended next agent: codex") {
+		t.Fatalf("resume summary:\n%s", rc.Summary)
+	}
+
+	_, resolved, err := d.memoryResolve(ctx, nil, MemoryGetInput{Project: project, ID: written.ID})
+	if err != nil {
+		t.Fatalf("memoryResolve: %v", err)
+	}
+	if resolved.Status != "resolved" {
+		t.Fatalf("resolved status = %q", resolved.Status)
+	}
+}
+
+func TestMCPSnapshotCreateWritesPatch(t *testing.T) {
+	requireCmd(t, "git")
+	t.Setenv("REKORD_MEMORY_ROOT", t.TempDir())
+	project := t.TempDir()
+	runAgentGit(t, project, "init")
+	runAgentGit(t, project, "config", "user.email", "test@example.com")
+	runAgentGit(t, project, "config", "user.name", "Test")
+	writeAgentFile(t, filepath.Join(project, "README.md"), "hello\n")
+	runAgentGit(t, project, "add", "README.md")
+	runAgentGit(t, project, "commit", "-m", "init")
+	writeAgentFile(t, filepath.Join(project, "README.md"), "hello\nagent\n")
+
+	d := &deps{}
+	_, snap, err := d.snapshotCreate(context.Background(), nil, SnapshotCreateInput{Project: project, Agent: "claude", Session: "memory-claude", Note: "handoff point"})
+	if err != nil {
+		t.Fatalf("snapshotCreate: %v", err)
+	}
+	if snap.Agent != "claude" || len(snap.Patches) != 1 {
+		t.Fatalf("snapshot = %+v", snap)
+	}
+	data, err := os.ReadFile(snap.Patches[0].Path)
+	if err != nil {
+		t.Fatalf("read patch: %v", err)
+	}
+	if !strings.Contains(string(data), "+agent") {
+		t.Fatalf("patch missing agent change:\n%s", data)
+	}
+}
+
+func runAgentGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func writeAgentFile(t *testing.T, path, data string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }
 
 func requireCmd(t *testing.T, name string) {
