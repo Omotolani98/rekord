@@ -30,7 +30,25 @@ func NormalizeProject(path string) (string, error) {
 	if err == nil {
 		abs = real
 	}
-	return filepath.Clean(abs), nil
+	abs = filepath.Clean(abs)
+	if root, ok := gitRoot(abs); ok {
+		return root, nil
+	}
+	return abs, nil
+}
+
+func gitRoot(start string) (string, bool) {
+	dir := start
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
 }
 
 func ProjectKey(project string) string {

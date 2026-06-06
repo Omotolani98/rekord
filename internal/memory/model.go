@@ -80,11 +80,15 @@ type ResumeContext struct {
 	Summary        string    `json:"summary"`
 }
 
+type ProjectInfo struct {
+	Path string `json:"path"`
+	Key  string `json:"key"`
+}
+
 type Filter struct {
-	Project   string
-	Agent     string
-	FromAgent string
-	Session   string
-	Status    string
-	Limit     int
+	Project string
+	Agent   string
+	Session string
+	Status  string
+	Limit   int
 }

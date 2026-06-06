@@ -88,7 +88,7 @@ func TestCreateSnapshotWritesGitPatches(t *testing.T) {
 	}
 }
 
-func TestBuildResumeContextFiltersAgent(t *testing.T) {
+func TestBuildResumeContextReturnsAllAgents(t *testing.T) {
 	store := NewFileStore(t.TempDir())
 	project := t.TempDir()
 	now := time.Date(2026, 6, 6, 10, 0, 0, 0, time.UTC)
@@ -107,7 +107,34 @@ func TestBuildResumeContextFiltersAgent(t *testing.T) {
 	if !strings.Contains(rc.Summary, "Claude stopped") {
 		t.Fatalf("summary missing claude memory:\n%s", rc.Summary)
 	}
+	if !strings.Contains(rc.Summary, "unrelated cleanup") {
+		t.Fatalf("from_agent must not filter out other agents' memories:\n%s", rc.Summary)
+	}
+	if !strings.Contains(rc.Summary, "Context from agent: claude") {
+		t.Fatalf("summary missing from_agent label:\n%s", rc.Summary)
+	}
+}
+
+func TestBuildResumeContextFiltersByExplicitAgent(t *testing.T) {
+	store := NewFileStore(t.TempDir())
+	project := t.TempDir()
+	now := time.Date(2026, 6, 6, 10, 0, 0, 0, time.UTC)
+	for _, m := range []Memory{
+		{ID: "mem_claude", Project: project, Agent: "claude", Status: StatusOpen, Type: TypeNote, Title: "Claude work", Body: "Claude stopped at parser tests", CreatedAt: now, UpdatedAt: now},
+		{ID: "mem_codex", Project: project, Agent: "codex", Status: StatusOpen, Type: TypeNote, Title: "Codex work", Body: "Codex did unrelated cleanup", CreatedAt: now.Add(time.Second), UpdatedAt: now.Add(time.Second)},
+	} {
+		if err := store.AddMemory(context.Background(), m); err != nil {
+			t.Fatalf("AddMemory: %v", err)
+		}
+	}
+	rc, err := BuildResumeContext(context.Background(), store, ResumeOptions{Project: project, Agent: "claude"})
+	if err != nil {
+		t.Fatalf("BuildResumeContext: %v", err)
+	}
+	if !strings.Contains(rc.Summary, "Claude stopped") {
+		t.Fatalf("summary missing claude memory:\n%s", rc.Summary)
+	}
 	if strings.Contains(rc.Summary, "unrelated cleanup") {
-		t.Fatalf("summary included unrelated agent:\n%s", rc.Summary)
+		t.Fatalf("explicit agent filter must exclude other agents:\n%s", rc.Summary)
 	}
 }

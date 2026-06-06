@@ -122,6 +122,11 @@ func (d *deps) register(srv *mcp.Server) {
 		Name:        "resume_context",
 		Description: "Return agent-ready context for resuming project work from memory.",
 	}, d.resumeContext)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "memory_projects",
+		Description: "List projects that have stored memory, mapping each storage key to its project path.",
+	}, d.memoryProjects)
 }
 
 type LaunchInput struct {
@@ -393,13 +398,12 @@ func (d *deps) memoryWrite(ctx context.Context, _ *mcp.CallToolRequest, in Memor
 }
 
 type MemorySearchInput struct {
-	Project   string `json:"project,omitempty"`
-	Query     string `json:"query,omitempty"`
-	Agent     string `json:"agent,omitempty"`
-	FromAgent string `json:"from_agent,omitempty"`
-	Session   string `json:"session,omitempty"`
-	Status    string `json:"status,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
+	Project string `json:"project,omitempty"`
+	Query   string `json:"query,omitempty"`
+	Agent   string `json:"agent,omitempty"`
+	Session string `json:"session,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Limit   int    `json:"limit,omitempty"`
 }
 
 type MemoriesOutput struct {
@@ -411,7 +415,7 @@ func (d *deps) memorySearch(ctx context.Context, _ *mcp.CallToolRequest, in Memo
 	if err != nil {
 		return nil, MemoriesOutput{}, err
 	}
-	items, err := store.SearchMemories(ctx, in.Query, mem.Filter{Project: project, Agent: in.Agent, FromAgent: in.FromAgent, Session: in.Session, Status: in.Status, Limit: in.Limit})
+	items, err := store.SearchMemories(ctx, in.Query, mem.Filter{Project: project, Agent: in.Agent, Session: in.Session, Status: in.Status, Limit: in.Limit})
 	if err != nil {
 		return nil, MemoriesOutput{}, err
 	}
@@ -423,7 +427,7 @@ func (d *deps) memoryList(ctx context.Context, _ *mcp.CallToolRequest, in Memory
 	if err != nil {
 		return nil, MemoriesOutput{}, err
 	}
-	items, err := store.ListMemories(ctx, mem.Filter{Project: project, Agent: in.Agent, FromAgent: in.FromAgent, Session: in.Session, Status: in.Status, Limit: in.Limit})
+	items, err := store.ListMemories(ctx, mem.Filter{Project: project, Agent: in.Agent, Session: in.Session, Status: in.Status, Limit: in.Limit})
 	if err != nil {
 		return nil, MemoriesOutput{}, err
 	}
@@ -513,6 +517,19 @@ func (d *deps) resumeContext(ctx context.Context, _ *mcp.CallToolRequest, in Res
 		return nil, mem.ResumeContext{}, err
 	}
 	return text(rc.Summary), rc, nil
+}
+
+type ProjectsOutput struct {
+	Projects []mem.ProjectInfo `json:"projects"`
+}
+
+func (d *deps) memoryProjects(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, ProjectsOutput, error) {
+	store := mem.NewFileStore(mem.DefaultRoot())
+	projects, err := store.ListProjects(ctx)
+	if err != nil {
+		return nil, ProjectsOutput{}, err
+	}
+	return text(fmt.Sprintf("%d project(s)", len(projects))), ProjectsOutput{Projects: projects}, nil
 }
 
 func agentMemoryStore(project string) (string, *mem.FileStore, error) {
