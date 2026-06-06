@@ -108,4 +108,7 @@ chocolateys:
     release_notes: "https://github.com/Omotolani98/rekord/blob/main/CHANGELOG.md"
     api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
     source_repo: "https://push.chocolatey.org/"
-    skip_publish: false
+    # Chocolatey publishing is disabled until the community package ownership/API key
+    # issue is resolved. GitHub release assets and Homebrew publishing should not be
+    # blocked by Chocolatey returning 403 Forbidden.
+    skip_publish: true
