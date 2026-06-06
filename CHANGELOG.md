@@ -4,6 +4,36 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.3.1 — 2026-06-06
+
+### Fixed
+- **Cross-tool memory now resolves to the same project.** Memory was keyed by the
+  hash of whatever directory launched `rekord mcp`, so two tools (e.g. Claude Code
+  and opencode) launched from different working directories wrote to different
+  `~/.rekord/projects/<hash>/` folders and never saw each other's memory. Project
+  identity now canonicalizes to the enclosing git repository root, so any working
+  directory or subdirectory inside a repo maps to one stable project key. Paths
+  outside a git repo are unchanged.
+- **`--from-agent` / `--to-agent` no longer hide memories.** `--from-agent` was a
+  hard filter, so `rekord resume --from-agent claude` dropped every memory not
+  written by `claude` and returned "No Rekord memory found". Handoff fields are now
+  labels only: `resume`, `recall`, and `memory list/search` return all of a
+  project's memory regardless of which agent wrote it. Use `--agent <name>` to
+  filter by writer explicitly.
+
+### Added
+- `rekord memory projects` lists every project with stored memory as
+  `storage-key → project path`, so scattered or legacy memory folders are
+  discoverable. New `memory_projects` MCP tool exposes the same listing to agents.
+- Each project folder now records a `project.json` (`{path, key}`), and
+  `rekord resume` prints the resolved `Storage key` so you can see exactly which
+  folder a session reads and writes.
+
+### Notes
+- Memory folders written under the old (directory-based) keys are not migrated
+  automatically. Run `rekord memory projects` to find them and move them to the
+  git-root key if needed.
+
 ## v0.3.0 — 2026-06-06
 
 ### Added
