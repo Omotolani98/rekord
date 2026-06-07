@@ -17,6 +17,8 @@ const (
 	castExportDirPerm  = 0o700
 	castExportFilePerm = 0o600
 	defaultTerm        = "xterm-256color"
+	defaultCols        = 80
+	defaultRows        = 24
 )
 
 type CastExporter struct{}
@@ -41,10 +43,17 @@ func (CastExporter) Export(ctx context.Context, m session.Metadata, evs []events
 	if m.Shell != "" {
 		env["SHELL"] = m.Shell
 	}
+	cols, rows := m.Cols, m.Rows
+	if cols <= 0 {
+		cols = defaultCols
+	}
+	if rows <= 0 {
+		rows = defaultRows
+	}
 	header := castHeader{
 		Version:   2,
-		Width:     m.Cols,
-		Height:    m.Rows,
+		Width:     cols,
+		Height:    rows,
 		Timestamp: m.CreatedAt.Unix(),
 		Env:       env,
 	}

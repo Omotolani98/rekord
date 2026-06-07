@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -37,8 +39,12 @@ func (e *exitCodeError) Error() string {
 
 // NewRootCommand builds the Rekord command tree.
 func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
+	name := filepath.Base(os.Args[0])
+	if name == "" || name == "." || name == "/" {
+		name = "rekord"
+	}
 	cmd := &cobra.Command{
-		Use:           "rekord",
+		Use:           name,
 		Short:         "Record terminal workflows as structured session data",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -57,10 +63,18 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newCommandsCommand(),
 		newScanCommand(),
 		newHandoffCommand(),
+		newRememberCommand(),
+		newRecallCommand(),
+		newSnapshotCommand(),
+		newResumeCommand(),
+		newMemoryCommand(),
+		newTranscriptCommand(),
 		newConfigCommand(),
 		newTmuxCommand(),
 		newSkillsCommand(),
 		newDoctorCommand(),
+		newMcpCommand(),
+		newSessionCommand(),
 	)
 
 	return cmd

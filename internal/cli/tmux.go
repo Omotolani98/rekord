@@ -97,12 +97,15 @@ func runTmuxCapture(cmd *cobra.Command, pane, name, root string) error {
 
 	now := time.Now().UTC()
 	id := session.NewID(name, now)
+	cols, rows := paneSize(ctx, pane)
 	m := session.Metadata{
 		ID:            id,
 		Name:          name,
 		CreatedAt:     now,
 		EndedAt:       &now,
 		TmuxPane:      pane,
+		Cols:          cols,
+		Rows:          rows,
 		Status:        session.StatusCompleted,
 		RekordVersion: Version(),
 	}
@@ -227,6 +230,19 @@ func runTmuxStart(cmd *cobra.Command, name, root string) error {
 	return attachErr
 }
 
+const (
+	defaultTmuxCols = 80
+	defaultTmuxRows = 24
+)
+
+func paneSize(ctx context.Context, pane string) (cols, rows int) {
+	cols, rows, err := tmux.PaneSize(ctx, pane)
+	if err != nil || cols <= 0 || rows <= 0 {
+		return defaultTmuxCols, defaultTmuxRows
+	}
+	return cols, rows
+}
+
 func requireTmux() error {
 	if !tmux.Available() {
 		return errors.New("tmux is not installed")
@@ -237,11 +253,14 @@ func requireTmux() error {
 func newTmuxSession(ctx context.Context, root, name, pane string) (*session.FileStore, session.Metadata, *events.Writer, string, error) {
 	now := time.Now().UTC()
 	id := session.NewID(name, now)
+	cols, rows := paneSize(ctx, pane)
 	m := session.Metadata{
 		ID:            id,
 		Name:          name,
 		CreatedAt:     now,
 		TmuxPane:      pane,
+		Cols:          cols,
+		Rows:          rows,
 		Status:        session.StatusRecording,
 		RekordVersion: Version(),
 	}

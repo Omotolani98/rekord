@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-const configFilePerm = 0o644
+const (
+	configFilePerm = 0o644
+	configDirPerm  = 0o755
+)
 
 type Config struct {
 	Commands  CommandsConfig  `yaml:"commands"`
@@ -54,6 +58,9 @@ func Save(path string, cfg Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("encode config: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), configDirPerm); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
 	}
 	if err := os.WriteFile(path, data, configFilePerm); err != nil {
 		return fmt.Errorf("write config %s: %w", path, err)

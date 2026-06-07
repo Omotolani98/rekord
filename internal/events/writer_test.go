@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -134,6 +135,9 @@ func TestWriterCloseIdempotent(t *testing.T) {
 }
 
 func TestWriterFilePerm(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix file permissions are not enforced on windows")
+	}
 	path := filepath.Join(t.TempDir(), "events.jsonl")
 	w, err := NewWriter(path)
 	if err != nil {

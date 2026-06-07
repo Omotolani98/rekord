@@ -25,7 +25,7 @@ func newScanCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&root, "root", defaultSessionsRoot(), "sessions root directory")
-	cmd.Flags().StringVar(&cfgPath, "config", "rekord.yaml", "config file with redaction patterns")
+	cmd.Flags().StringVar(&cfgPath, "config", defaultConfigPath(), "config file with redaction patterns")
 	cmd.Flags().BoolVar(&strict, "strict", false, "exit non-zero if secrets are found")
 
 	return cmd

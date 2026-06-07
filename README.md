@@ -1,6 +1,13 @@
-# Rekord
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/rekord-wordmark-dark.svg">
+    <img alt="rekord" src="assets/logo/rekord-wordmark.svg" width="300">
+  </picture>
+</p>
 
-[![CI](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml/badge.svg)](https://github.com/Omotolani98/rekord/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://github.com/Omotolani98/rekord/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Omotolani98/rekord/actions/workflows/ci.yml/badge.svg"></a>
+</p>
 
 Rekord is a Go CLI that records terminal workflows as structured session data, then
 exports them to Markdown, JSON, asciinema casts, GIF/MP4, and AI-ready handoff bundles.
@@ -25,11 +32,14 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 ## Install
 
-Homebrew (available after the first tagged release):
+Homebrew:
 
 ```bash
-brew install Omotolani98/rekord/rekord
+brew tap Omotolani98/rekord
+brew install rekord
 ```
+
+(Or in one line: `brew install Omotolani98/rekord/rekord`.)
 
 With Go:
 
@@ -39,6 +49,10 @@ go install github.com/Omotolani98/rekord/cmd/rekord@latest
 
 Or download a prebuilt archive for your platform from the
 [Releases](https://github.com/Omotolani98/rekord/releases) page.
+
+Every install ships a `rk` short alias — a drop-in equivalent of `rekord` (`rk version`,
+`rk start …`). Install it standalone with Go via
+`go install github.com/Omotolani98/rekord/cmd/rk@latest`.
 
 ## Quickstart
 
@@ -56,7 +70,7 @@ rekord scan demo --strict                   # fail if secrets are present
 ## Usage
 
 ```text
-rekord
+rekord  (alias: rk)
   start                 # record an interactive shell (--timer, --stop-key to stop)
   run -- <cmd>          # record a single command
   list                  # list recorded sessions
@@ -66,7 +80,11 @@ rekord
   scan <session>        # report possible secrets (--strict)
   handoff <session>     # AI context bundle (--include-git/--include-tree/--copy)
   doctor                # check for optional external tools
-  config                # get/set/view rekord.yaml (e.g. recording.stopKey)
+  config                # manage rekord.yaml (default ~/.rekord/rekord.yaml)
+    get <key>           # print a value (recording.stopKey, privacy.redact)
+    set <key> <value>   # set a value (creates the file if needed)
+    view                # print the merged config
+    path                # print the resolved config file path
   version
   tmux
     status              # is the shell inside tmux?
@@ -83,8 +101,9 @@ is installed.
 
 ## Configuration
 
-Optional `rekord.yaml` in the working directory tunes command extraction and
-redaction. Values are merged with the built-in defaults:
+An optional `rekord.yaml` tunes command extraction and redaction. By default Rekord reads
+`~/.rekord/rekord.yaml`, falling back to a `./rekord.yaml` in the current directory when one
+is present; `--config <path>` overrides either. Values are merged with the built-in defaults:
 
 ```yaml
 commands:
@@ -99,7 +118,8 @@ recording:
 ```
 
 Edit it from the CLI with `rekord config set recording.stopKey ctrl-x` (and
-`rekord config view` to inspect the merged result).
+`rekord config view` to inspect the merged result, or `rekord config path` to print the
+resolved file location).
 
 ## Session storage
 
