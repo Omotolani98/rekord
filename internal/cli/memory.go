@@ -7,6 +7,8 @@ import (
 	"time"
 
 	mem "github.com/Omotolani98/rekord/internal/memory"
+	"github.com/Omotolani98/rekord/internal/redact"
+	"github.com/Omotolani98/rekord/internal/transcript"
 	"github.com/spf13/cobra"
 )
 
@@ -109,6 +111,7 @@ func newSnapshotCommand() *cobra.Command {
 func newResumeCommand() *cobra.Command {
 	var flags memoryFlags
 	var query string
+	var includeTranscript bool
 	cmd := &cobra.Command{
 		Use:   "resume",
 		Short: "Generate agent-ready context from Rekord memory",
@@ -130,7 +133,13 @@ func newResumeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), rc.Summary)
+			summary := rc.Summary
+			if includeTranscript {
+				if digest := latestTranscriptDigest(project); digest != "" {
+					summary = summary + "\n\n## Prior agent transcript\n\n" + digest
+				}
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), summary)
 			return err
 		},
 	}
@@ -139,7 +148,22 @@ func newResumeCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.toAgent, "to-agent", "", "destination agent for handoff context")
 	cmd.Flags().StringVar(&query, "query", "", "optional query to rank memories")
 	cmd.Flags().IntVar(&flags.limit, "limit", 8, "maximum memories to include")
+	cmd.Flags().BoolVar(&includeTranscript, "include-transcript", false, "append a digest of the latest prior agent transcript")
 	return cmd
+}
+
+func latestTranscriptDigest(project string) string {
+	summaries, err := transcript.List(project)
+	if err != nil || len(summaries) == 0 {
+		return ""
+	}
+	s := summaries[0]
+	tr, err := transcript.Read(project, s.Source, s.SessionID)
+	if err != nil {
+		return ""
+	}
+	tr = tr.Redact(redact.NewDefault())
+	return transcript.Digest(tr, 0, 0)
 }
 
 func newMemoryCommand() *cobra.Command {

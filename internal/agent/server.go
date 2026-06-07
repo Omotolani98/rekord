@@ -12,6 +12,7 @@ import (
 	"github.com/Omotolani98/rekord/internal/live"
 	mem "github.com/Omotolani98/rekord/internal/memory"
 	"github.com/Omotolani98/rekord/internal/redact"
+	"github.com/Omotolani98/rekord/internal/transcript"
 )
 
 const (
@@ -127,6 +128,26 @@ func (d *deps) register(srv *mcp.Server) {
 		Name:        "memory_projects",
 		Description: "List projects that have stored memory, mapping each storage key to its project path.",
 	}, d.memoryProjects)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "transcript_sources",
+		Description: "List coding-agent transcript sources available on this machine (claude, codex).",
+	}, d.transcriptSources)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "transcript_list",
+		Description: "List prior agent session transcripts recorded for this project across all sources, newest first.",
+	}, d.transcriptList)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "transcript_read",
+		Description: "Read one prior agent session transcript by source and id. Redacted unless raw is true.",
+	}, d.transcriptRead)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "transcript_search",
+		Description: "Search prior agent session transcripts for this project by query across all sources.",
+	}, d.transcriptSearch)
 }
 
 type LaunchInput struct {
@@ -498,13 +519,14 @@ func (d *deps) snapshotCreate(ctx context.Context, _ *mcp.CallToolRequest, in Sn
 }
 
 type ResumeContextInput struct {
-	Project   string `json:"project,omitempty"`
-	Agent     string `json:"agent,omitempty"`
-	FromAgent string `json:"from_agent,omitempty"`
-	ToAgent   string `json:"to_agent,omitempty"`
-	Session   string `json:"session,omitempty"`
-	Query     string `json:"query,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
+	Project           string `json:"project,omitempty"`
+	Agent             string `json:"agent,omitempty"`
+	FromAgent         string `json:"from_agent,omitempty"`
+	ToAgent           string `json:"to_agent,omitempty"`
+	Session           string `json:"session,omitempty"`
+	Query             string `json:"query,omitempty"`
+	Limit             int    `json:"limit,omitempty"`
+	IncludeTranscript bool   `json:"include_transcript,omitempty" jsonschema:"append a digest of the latest prior agent transcript"`
 }
 
 func (d *deps) resumeContext(ctx context.Context, _ *mcp.CallToolRequest, in ResumeContextInput) (*mcp.CallToolResult, mem.ResumeContext, error) {
@@ -516,7 +538,127 @@ func (d *deps) resumeContext(ctx context.Context, _ *mcp.CallToolRequest, in Res
 	if err != nil {
 		return nil, mem.ResumeContext{}, err
 	}
-	return text(rc.Summary), rc, nil
+	summary := rc.Summary
+	if in.IncludeTranscript {
+		if digest := d.latestTranscriptDigest(project); digest != "" {
+			summary = summary + "\n\n## Prior agent transcript\n\n" + digest
+		}
+	}
+	return text(summary), rc, nil
+}
+
+func (d *deps) latestTranscriptDigest(project string) string {
+	summaries, err := transcript.List(project)
+	if err != nil || len(summaries) == 0 {
+		return ""
+	}
+	s := summaries[0]
+	tr, err := transcript.Read(project, s.Source, s.SessionID)
+	if err != nil {
+		return ""
+	}
+	if d.redactor != nil {
+		tr = tr.Redact(d.redactor)
+	}
+	return transcript.Digest(tr, 0, 0)
+}
+
+type TranscriptSourcesOutput struct {
+	Sources []string `json:"sources"`
+}
+
+func (d *deps) transcriptSources(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, TranscriptSourcesOutput, error) {
+	sources := transcript.Sources()
+	return text(strings.Join(sources, ", ")), TranscriptSourcesOutput{Sources: sources}, nil
+}
+
+type TranscriptListInput struct {
+	Project string `json:"project,omitempty"`
+	Source  string `json:"source,omitempty" jsonschema:"limit to one source: claude or codex"`
+}
+
+type TranscriptListOutput struct {
+	Transcripts []transcript.Summary `json:"transcripts"`
+}
+
+func (d *deps) transcriptList(_ context.Context, _ *mcp.CallToolRequest, in TranscriptListInput) (*mcp.CallToolResult, TranscriptListOutput, error) {
+	project, err := mem.NormalizeProject(in.Project)
+	if err != nil {
+		return nil, TranscriptListOutput{}, err
+	}
+	items, err := transcript.List(project)
+	if err != nil {
+		return nil, TranscriptListOutput{}, err
+	}
+	items = filterTranscripts(items, in.Source)
+	if d.redactor != nil {
+		for i := range items {
+			items[i] = items[i].Redact(d.redactor)
+		}
+	}
+	return text(fmt.Sprintf("%d transcript(s)", len(items))), TranscriptListOutput{Transcripts: items}, nil
+}
+
+type TranscriptReadInput struct {
+	Project  string `json:"project,omitempty"`
+	Source   string `json:"source" jsonschema:"transcript source: claude or codex"`
+	ID       string `json:"id" jsonschema:"session id from transcript_list"`
+	LastN    int    `json:"last_n,omitempty" jsonschema:"keep only the last N turns (default 20)"`
+	MaxBytes int    `json:"max_bytes,omitempty" jsonschema:"max digest bytes (default 8000)"`
+	Raw      bool   `json:"raw,omitempty" jsonschema:"return unredacted text (sensitive)"`
+}
+
+func (d *deps) transcriptRead(_ context.Context, _ *mcp.CallToolRequest, in TranscriptReadInput) (*mcp.CallToolResult, transcript.Transcript, error) {
+	project, err := mem.NormalizeProject(in.Project)
+	if err != nil {
+		return nil, transcript.Transcript{}, err
+	}
+	tr, err := transcript.Read(project, in.Source, in.ID)
+	if err != nil {
+		return nil, transcript.Transcript{}, err
+	}
+	if !in.Raw && d.redactor != nil {
+		tr = tr.Redact(d.redactor)
+	}
+	return text(transcript.Digest(tr, in.LastN, in.MaxBytes)), tr, nil
+}
+
+type TranscriptSearchInput struct {
+	Project string `json:"project,omitempty"`
+	Query   string `json:"query"`
+	Source  string `json:"source,omitempty"`
+}
+
+func (d *deps) transcriptSearch(_ context.Context, _ *mcp.CallToolRequest, in TranscriptSearchInput) (*mcp.CallToolResult, TranscriptListOutput, error) {
+	project, err := mem.NormalizeProject(in.Project)
+	if err != nil {
+		return nil, TranscriptListOutput{}, err
+	}
+	items, err := transcript.Search(project, in.Query)
+	if err != nil {
+		return nil, TranscriptListOutput{}, err
+	}
+	items = filterTranscripts(items, in.Source)
+	if d.redactor != nil {
+		for i := range items {
+			items[i] = items[i].Redact(d.redactor)
+		}
+	}
+	return text(fmt.Sprintf("%d transcript(s)", len(items))), TranscriptListOutput{Transcripts: items}, nil
+}
+
+func filterTranscripts(items []transcript.Summary, source string) []transcript.Summary {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return items
+	}
+	var out []transcript.Summary
+	for _, s := range items {
+		if s.Source == source {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 type ProjectsOutput struct {

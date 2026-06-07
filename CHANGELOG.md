@@ -4,6 +4,33 @@ All notable changes to Rekord are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## v0.4.0 — 2026-06-07
+
+### Added
+- **Cross-agent transcript bridge.** Rekord can now read other coding agents'
+  native session logs and serve them back to whichever agent asks, making real
+  conversation context transferable in any direction (Claude ↔ Codex). Each agent
+  keeps writing its own logs; rekord adapts them to one shape and matches them to
+  the current project. Read-through only — native logs stay the source of truth,
+  nothing is copied.
+  - Sources: Claude Code (`~/.claude/projects/**.jsonl`) and Codex
+    (`~/.codex/sessions/**/rollout-*.jsonl`). Each session is matched to a project
+    by its recorded `cwd`, canonicalized to the git-root key, so subdirectory
+    sessions resolve to the same project.
+  - New `rekord transcript` CLI: `sources`, `list [--source]`,
+    `show <source> <id>`, `search <query>`.
+  - New MCP tools: `transcript_sources`, `transcript_list`, `transcript_read`,
+    `transcript_search`.
+  - `rekord resume --include-transcript` (and `include_transcript` on the
+    `resume_context` MCP tool) appends a redacted digest of the latest prior agent
+    transcript to the resume bundle. Off by default.
+- Transcript text is redacted with the default secret patterns unless `--raw` /
+  `raw: true` is passed, matching the existing `capture`/`logs` behavior.
+
+### Notes
+- OpenCode session logs are not read yet; the `Source` interface leaves room to
+  add them without other changes.
+
 ## v0.3.1 — 2026-06-06
 
 ### Fixed
